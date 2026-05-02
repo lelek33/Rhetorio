@@ -10,6 +10,7 @@ import { VoiceButton } from "../components/VoiceButton";
 import { colors } from "../constants/colors";
 import { useAuth } from "../hooks/useAuth";
 import { useConversationSession } from "../hooks/useConversationSession";
+import { useRealtimeVoice } from "../hooks/useRealtimeVoice";
 import { RootStackParamList } from "../navigation/types";
 import { getScenario } from "../services/supabase/scenarios";
 import { Scenario } from "../types/scenario";
@@ -21,6 +22,7 @@ export function SessionScreen({ navigation, route }: Props) {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [text, setText] = useState("");
   const conversation = useConversationSession(user?.id, scenario);
+  const voice = useRealtimeVoice({ sessionId: conversation.session?.id, scenarioTitle: scenario?.title });
 
   useEffect(() => {
     getScenario(route.params.scenarioId).then(setScenario).catch(() => setScenario(null));
@@ -37,6 +39,7 @@ export function SessionScreen({ navigation, route }: Props) {
   }
 
   async function finish() {
+    if (voice.connected || voice.mode === "connecting") await voice.stop();
     const analysis = await conversation.finish();
     if (conversation.session && analysis) {
       navigation.replace("Analysis", { sessionId: conversation.session.id, analysis });
@@ -52,11 +55,18 @@ export function SessionScreen({ navigation, route }: Props) {
           </Pressable>
           <View style={styles.headerText}>
             <Text style={styles.title}>{scenario?.title ?? "Training"}</Text>
-            <Text style={styles.timer}>{Math.floor(conversation.elapsedSeconds / 60)}:{String(conversation.elapsedSeconds % 60).padStart(2, "0")} · Textmodus</Text>
+            <Text style={styles.timer}>
+              {Math.floor(conversation.elapsedSeconds / 60)}:{String(conversation.elapsedSeconds % 60).padStart(2, "0")} ·{" "}
+              {voice.connected ? "Live Voice" : "Textmodus"}
+            </Text>
           </View>
         </View>
 
         {conversation.error && conversation.error !== "SESSION_LIMIT_REACHED" ? <Text style={styles.error}>{conversation.error}</Text> : null}
+        {voice.error ? <Text style={styles.error}>{voice.error}</Text> : null}
+        <Text style={styles.voiceStatus}>
+          {Platform.OS === "web" ? `Voice: ${voice.mode === "idle" ? "bereit" : voice.mode}` : "Live Voice wird später nativ aktiviert."}
+        </Text>
 
         <FlatList
           data={conversation.messages}
@@ -66,7 +76,7 @@ export function SessionScreen({ navigation, route }: Props) {
         />
 
         <View style={styles.inputRow}>
-          <VoiceButton />
+          <VoiceButton enabled={Platform.OS === "web"} recording={voice.connected || voice.mode === "connecting"} onPress={voice.toggle} />
           <TextInput
             value={text}
             onChangeText={setText}
@@ -113,6 +123,10 @@ const styles = StyleSheet.create({
   },
   timer: {
     color: colors.muted
+  },
+  voiceStatus: {
+    color: colors.muted,
+    fontSize: 13
   },
   messages: {
     gap: 10,

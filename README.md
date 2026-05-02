@@ -17,8 +17,10 @@ RhetoCoach ist eine mobile Expo React Native App fuer deutschsprachiges KI-Gespr
 
 3. Supabase Secrets fuer Edge Functions setzen:
    ```bash
-   supabase secrets set OPENAI_API_KEY=sk-...
-   supabase secrets set OPENAI_MODEL=gpt-4o-mini
+supabase secrets set OPENAI_API_KEY=sk-...
+supabase secrets set OPENAI_MODEL=gpt-4o-mini
+supabase secrets set OPENAI_REALTIME_MODEL=gpt-realtime
+supabase secrets set OPENAI_REALTIME_VOICE=marin
    ```
 
 4. Migration ausfuehren:
@@ -30,7 +32,8 @@ RhetoCoach ist eine mobile Expo React Native App fuer deutschsprachiges KI-Gespr
    ```bash
    supabase functions deploy generate-reply
    supabase functions deploy analyze-session
-   supabase functions deploy create-realtime-session
+supabase functions deploy create-realtime-session
+supabase functions deploy record-voice-usage
    ```
 
 6. App lokal starten:
@@ -59,6 +62,23 @@ Diese App ist eine Expo React Native App. Vercel kann die Web-Version hosten, ni
 
 Die Datei `vercel.json` setzt diese Werte bereits fuer das Projekt.
 
+## Realtime Voice im Browser testen
+
+Live Voice ist im MVP zuerst fuer Expo Web / Vercel aktiviert. Der Web-Flow nutzt Browser APIs:
+
+- `navigator.mediaDevices.getUserMedia`
+- `RTCPeerConnection`
+- `RTCDataChannel`
+- `HTMLAudioElement`
+
+Lokal im Browser testen:
+
+```bash
+npm run web
+```
+
+Dann eine Session starten und im Session-Screen den Voice-Button antippen. Der Browser fragt nach Mikrofonzugriff. Native iOS/Android bleibt vorbereitet, nutzt aber noch keinen produktiven `react-native-webrtc` Flow.
+
 ## Supabase verbinden
 
 1. Neues Supabase-Projekt erstellen.
@@ -72,12 +92,15 @@ Die Datei `vercel.json` setzt diese Werte bereits fuer das Projekt.
    ```bash
    supabase secrets set OPENAI_API_KEY=sk-...
    supabase secrets set OPENAI_MODEL=gpt-4o-mini
+   supabase secrets set OPENAI_REALTIME_MODEL=gpt-realtime
+   supabase secrets set OPENAI_REALTIME_VOICE=marin
    ```
 6. Functions deployen:
    ```bash
    supabase functions deploy generate-reply
    supabase functions deploy analyze-session
    supabase functions deploy create-realtime-session
+   supabase functions deploy record-voice-usage
    ```
 
 ## Supabase Auth Redirects
