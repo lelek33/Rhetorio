@@ -5,6 +5,8 @@ import { ensureProfile, getProfile } from "../services/supabase/profiles";
 import { supabase } from "../services/supabase/client";
 import { Profile } from "../types/user";
 
+const authLoadTimeoutMs = 3500;
+
 type AuthContextValue = {
   user: User | null;
   session: Session | null;
@@ -34,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function loadInitialSession() {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data } = await withTimeout(supabase.auth.getSession(), authLoadTimeoutMs);
         if (!mounted) return;
         setSession(data.session);
         if (data.session?.user) {
@@ -44,6 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch {
             if (mounted) setProfile(null);
           }
+        }
+      } catch {
+        if (mounted) {
+          setSession(null);
+          setProfile(null);
         }
       } finally {
         if (mounted) setLoading(false);
@@ -87,6 +94,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      globalThis.setTimeout(() => reject(new Error("Auth load timeout")), timeoutMs);
+    })
+  ]);
 }
 
 export function useAuth() {
