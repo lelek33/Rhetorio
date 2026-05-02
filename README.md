@@ -80,6 +80,20 @@ Die Datei `vercel.json` setzt diese Werte bereits fuer das Projekt.
    supabase functions deploy create-realtime-session
    ```
 
+## Supabase Auth Redirects
+
+Damit E-Mail-Bestaetigungslinks zur Vercel-App zurueckfuehren:
+
+1. Supabase Dashboard -> Authentication -> URL Configuration.
+2. Site URL setzen:
+   ```bash
+   https://rhetorio.vercel.app
+   ```
+3. Redirect URLs hinzufuegen:
+   ```bash
+   https://rhetorio.vercel.app/**
+   ```
+
 ## MVP-Fokus
 
 - Textbasiertes KI-Roleplay
