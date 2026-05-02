@@ -32,19 +32,40 @@ export async function updateTrainingGoal(userId: string, trainingGoal: string) {
 export async function canStartSession(userId: string) {
   const profile = await ensureProfile(userId);
   const limit = profile.subscription_status === "premium" ? PREMIUM_MONTHLY_LIMIT : FREE_MONTHLY_LIMIT;
+  const used = await countSessionsThisMonth(userId);
 
   return {
-    allowed: profile.free_sessions_used < limit,
-    used: profile.free_sessions_used,
+    allowed: used < limit,
+    used,
     limit,
     status: profile.subscription_status
   };
 }
 
-export async function incrementSessionUsage(userId: string, currentCount: number) {
+export async function incrementSessionUsage(_userId: string, _currentCount: number) {
+  // Usage is now calculated from sessions per calendar month, so starting a session
+  // does not permanently consume a slot during MVP testing.
+}
+
+async function countSessionsThisMonth(userId: string) {
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const { count, error } = await supabase
+    .from("sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("started_at", startOfMonth.toISOString());
+
+  if (error) return 0;
+  return count ?? 0;
+}
+
+export async function resetFreeSessionCounter(userId: string) {
   const { error } = await supabase
     .from("profiles")
-    .update({ free_sessions_used: currentCount + 1 })
+    .update({ free_sessions_used: 0 })
     .eq("id", userId);
 
   if (error) throw error;

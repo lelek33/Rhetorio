@@ -1,5 +1,5 @@
 import { HistoryItem, TrainingSession } from "../../types/session";
-import { canStartSession, incrementSessionUsage } from "./profiles";
+import { canStartSession } from "./profiles";
 import { supabase } from "./client";
 
 type HistoryRow = TrainingSession & {
@@ -18,7 +18,6 @@ export async function startSession(userId: string, scenarioId: string): Promise<
     .single();
 
   if (error) throw error;
-  await incrementSessionUsage(userId, permission.used);
   return data as TrainingSession;
 }
 
