@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "RhetoCoach",
+    "slug": "rhetocoach",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "rhetocoach",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F7F8FA"
+      }
+    },
+    "plugins": ["expo-secure-store"]
+  }
+}
