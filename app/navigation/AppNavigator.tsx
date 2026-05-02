@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { colors } from "../constants/colors";
 import { useAuth } from "../hooks/useAuth";
 import { AnalysisScreen } from "../screens/AnalysisScreen";
+import { AuthScreen } from "../screens/AuthScreen";
 import { ScenarioDetailScreen } from "../screens/ScenarioDetailScreen";
 import { SessionScreen } from "../screens/SessionScreen";
 import { UpgradeScreen } from "../screens/UpgradeScreen";
@@ -14,7 +15,7 @@ import { RootStackParamList } from "./types";
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function AppNavigator() {
-  const { user, loading } = useAuth();
+  const { user, loading, passwordRecovery } = useAuth();
 
   if (loading) {
     return (
@@ -25,6 +26,7 @@ export function AppNavigator() {
   }
 
   if (!user) return <AuthNavigator />;
+  if (passwordRecovery) return <AuthScreen />;
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
