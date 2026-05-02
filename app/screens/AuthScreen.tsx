@@ -13,6 +13,7 @@ export function AuthScreen() {
   const [password, setPassword] = useState("");
   const [signupMode, setSignupMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
 
   async function submit() {
     if (!validateEmail(email)) return Alert.alert("E-Mail prüfen", "Bitte gib eine gültige E-Mail-Adresse ein.");
@@ -20,8 +21,15 @@ export function AuthScreen() {
 
     setLoading(true);
     try {
-      if (signupMode) await signUp(email.trim(), password);
-      else await signIn(email.trim(), password);
+      if (signupMode) {
+        const result = await signUp(email.trim(), password);
+        if (!result.session) {
+          setConfirmationEmail(email.trim());
+          return;
+        }
+      } else {
+        await signIn(email.trim(), password);
+      }
     } catch (error) {
       Alert.alert("Anmeldung fehlgeschlagen", error instanceof Error ? error.message : "Bitte versuche es erneut.");
     } finally {
@@ -38,6 +46,15 @@ export function AuthScreen() {
       </View>
 
       <View style={styles.form}>
+        {confirmationEmail ? (
+          <View style={styles.notice}>
+            <Text style={styles.noticeTitle}>Bestätige deine E-Mail</Text>
+            <Text style={styles.noticeText}>
+              Wir haben einen Bestätigungslink an {confirmationEmail} gesendet. Danach kannst du dich hier einloggen.
+            </Text>
+          </View>
+        ) : null}
+
         <TextInput
           autoCapitalize="none"
           autoComplete="email"
@@ -60,7 +77,10 @@ export function AuthScreen() {
         <AppButton title={signupMode ? "Kostenlos registrieren" : "Einloggen"} onPress={submit} loading={loading} />
         <AppButton
           title={signupMode ? "Ich habe schon einen Account" : "Neuen Account erstellen"}
-          onPress={() => setSignupMode((value) => !value)}
+          onPress={() => {
+            setConfirmationEmail(null);
+            setSignupMode((value) => !value);
+          }}
           variant="ghost"
         />
       </View>
@@ -97,6 +117,22 @@ const styles = StyleSheet.create({
     minHeight: 54,
     fontSize: 16,
     color: colors.primary
+  },
+  notice: {
+    backgroundColor: colors.softAccent,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    padding: 14,
+    gap: 6
+  },
+  noticeTitle: {
+    color: colors.primary,
+    fontWeight: "800"
+  },
+  noticeText: {
+    color: colors.text,
+    lineHeight: 20
   },
   actions: {
     gap: 8
