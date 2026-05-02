@@ -30,27 +30,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session);
-      if (data.session?.user) {
-        const loaded = await ensureProfile(data.session.user.id, data.session.user.email);
-        setProfile(loaded);
+    let mounted = true;
+
+    async function loadInitialSession() {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!mounted) return;
+        setSession(data.session);
+        if (data.session?.user) {
+          try {
+            const loaded = await ensureProfile(data.session.user.id, data.session.user.email);
+            if (mounted) setProfile(loaded);
+          } catch {
+            if (mounted) setProfile(null);
+          }
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
-    });
+    }
+
+    loadInitialSession();
 
     const { data } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
       setSession(nextSession);
       if (nextSession?.user) {
-        const loaded = await ensureProfile(nextSession.user.id, nextSession.user.email);
-        setProfile(loaded);
+        try {
+          const loaded = await ensureProfile(nextSession.user.id, nextSession.user.email);
+          setProfile(loaded);
+        } catch {
+          setProfile(null);
+        }
       } else {
         setProfile(null);
       }
     });
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   const value = useMemo(
