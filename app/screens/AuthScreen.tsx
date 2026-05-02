@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 
 import { AppButton } from "../components/AppButton";
 import { ScreenContainer } from "../components/ScreenContainer";
@@ -11,6 +11,13 @@ import { maskEmail } from "../utils/maskEmail";
 import { validateEmail, validatePassword } from "../utils/validators";
 
 type AuthMode = "login" | "signup" | "forgot";
+type MessageTone = "info" | "error";
+
+type InlineMessage = {
+  title: string;
+  text: string;
+  tone: MessageTone;
+};
 
 export function AuthScreen() {
   const { passwordRecovery, clearPasswordRecovery } = useAuth();
@@ -19,75 +26,113 @@ export function AuthScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [mode, setMode] = useState<AuthMode>("login");
   const [loading, setLoading] = useState(false);
-  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
-  const [resetEmail, setResetEmail] = useState<string | null>(null);
+  const [message, setMessage] = useState<InlineMessage | null>(null);
 
   const signupMode = mode === "signup";
   const forgotMode = mode === "forgot";
 
   async function submit() {
     if (passwordRecovery) return submitNewPassword();
-    if (!validateEmail(email)) return Alert.alert("E-Mail prüfen", "Bitte gib eine gültige E-Mail-Adresse ein.");
+
+    setMessage(null);
+    if (!validateEmail(email)) {
+      showError("E-Mail prüfen", "Bitte gib eine gültige E-Mail-Adresse ein.");
+      return;
+    }
     if (forgotMode) return submitPasswordReset();
-    if (!validatePassword(password)) return Alert.alert("Passwort prüfen", "Das Passwort braucht mindestens 6 Zeichen.");
+    if (!validatePassword(password)) {
+      showError("Passwort prüfen", "Das Passwort braucht mindestens 6 Zeichen.");
+      return;
+    }
 
     setLoading(true);
     try {
       if (signupMode) {
-        const result = await signUp(email.trim(), password);
-        const identities = result.user && "identities" in result.user ? result.user.identities : undefined;
-        if (Array.isArray(identities) && identities.length === 0) {
-          Alert.alert("E-Mail bereits registriert", "Diese E-Mail ist bereits registriert. Logge dich ein oder nutze Passwort vergessen.");
-          setMode("login");
-          return;
-        }
-        if (!result.session) {
-          setConfirmationEmail(maskEmail(email.trim()));
-          return;
-        }
+        await submitSignup();
       } else {
         await signIn(email.trim(), password);
       }
     } catch (error) {
-      Alert.alert("Anmeldung fehlgeschlagen", error instanceof Error ? error.message : "Bitte versuche es erneut.");
+      const text = error instanceof Error ? error.message : "Bitte versuche es erneut.";
+      const alreadyRegistered = signupMode && text.toLowerCase().includes("registered");
+      showError(
+        alreadyRegistered ? "E-Mail bereits registriert" : "Anmeldung fehlgeschlagen",
+        alreadyRegistered ? "Diese E-Mail ist bereits registriert. Logge dich ein oder nutze Passwort vergessen." : text
+      );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function submitSignup() {
+    const trimmedEmail = email.trim();
+    const result = await signUp(trimmedEmail, password);
+    const identities = result.user && "identities" in result.user ? result.user.identities : undefined;
+
+    if (Array.isArray(identities) && identities.length === 0) {
+      showError("E-Mail bereits registriert", "Diese E-Mail ist bereits registriert. Logge dich ein oder nutze Passwort vergessen.");
+      setMode("login");
+      return;
+    }
+
+    if (!result.session) {
+      const maskedEmail = maskEmail(trimmedEmail);
+      setMessage({
+        title: "Bestätige deine E-Mail",
+        text: `Wir haben einen Bestätigungslink an ${maskedEmail} gesendet. Danach kannst du dich hier einloggen.`,
+        tone: "info"
+      });
     }
   }
 
   async function submitPasswordReset() {
     setLoading(true);
     try {
+      const maskedEmail = maskEmail(email.trim());
       await sendPasswordReset(email.trim());
-      setResetEmail(maskEmail(email.trim()));
+      setMessage({
+        title: "Reset-Link versendet",
+        text: `Wir haben einen Link zum Zurücksetzen an ${maskedEmail} gesendet.`,
+        tone: "info"
+      });
     } catch (error) {
-      Alert.alert("Reset fehlgeschlagen", error instanceof Error ? error.message : "Bitte versuche es erneut.");
+      showError("Reset fehlgeschlagen", error instanceof Error ? error.message : "Bitte versuche es erneut.");
     } finally {
       setLoading(false);
     }
   }
 
   async function submitNewPassword() {
-    if (!validatePassword(password)) return Alert.alert("Passwort prüfen", "Das Passwort braucht mindestens 6 Zeichen.");
-    if (password !== confirmPassword) return Alert.alert("Passwörter prüfen", "Die Passwörter stimmen nicht überein.");
+    setMessage(null);
+    if (!validatePassword(password)) {
+      showError("Passwort prüfen", "Das Passwort braucht mindestens 6 Zeichen.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      showError("Passwörter prüfen", "Die Passwörter stimmen nicht überein.");
+      return;
+    }
 
     setLoading(true);
     try {
       await updatePassword(password);
       clearPasswordRecovery();
     } catch (error) {
-      Alert.alert("Passwort konnte nicht geändert werden", error instanceof Error ? error.message : "Bitte versuche es erneut.");
+      showError("Passwort konnte nicht geändert werden", error instanceof Error ? error.message : "Bitte versuche es erneut.");
     } finally {
       setLoading(false);
     }
+  }
+
+  function showError(title: string, text: string) {
+    setMessage({ title, text, tone: "error" });
   }
 
   function switchMode(nextMode: AuthMode) {
     setMode(nextMode);
     setPassword("");
     setConfirmPassword("");
-    setConfirmationEmail(null);
-    setResetEmail(null);
+    setMessage(null);
   }
 
   const title = passwordRecovery ? "Neues Passwort setzen" : forgotMode ? "Passwort vergessen" : signupMode ? "Account erstellen" : "Willkommen zurück";
@@ -102,16 +147,10 @@ export function AuthScreen() {
       </View>
 
       <View style={styles.form}>
-        {confirmationEmail ? (
-          <View style={styles.notice}>
-            <Text style={styles.noticeTitle}>Bestätige deine E-Mail</Text>
-            <Text style={styles.noticeText}>Wir haben einen Bestätigungslink an {confirmationEmail} gesendet. Danach kannst du dich hier einloggen.</Text>
-          </View>
-        ) : null}
-        {resetEmail ? (
-          <View style={styles.notice}>
-            <Text style={styles.noticeTitle}>Reset-Link versendet</Text>
-            <Text style={styles.noticeText}>Wir haben einen Link zum Zurücksetzen an {resetEmail} gesendet.</Text>
+        {message ? (
+          <View style={[styles.notice, message.tone === "error" && styles.errorNotice]}>
+            <Text style={styles.noticeTitle}>{message.title}</Text>
+            <Text style={styles.noticeText}>{message.text}</Text>
           </View>
         ) : null}
 
@@ -198,6 +237,10 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
     padding: 14,
     gap: 6
+  },
+  errorNotice: {
+    backgroundColor: "#FEF2F2",
+    borderColor: colors.error
   },
   noticeTitle: {
     color: colors.primary,
