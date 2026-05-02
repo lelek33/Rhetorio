@@ -12,6 +12,7 @@ import { RootStackParamList } from "../navigation/types";
 export function TrainingScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { grouped, loading, error } = useScenarios();
+  const hasScenarios = Object.values(grouped).some((scenarios) => scenarios.length > 0);
 
   return (
     <ScreenContainer>
@@ -22,6 +23,7 @@ export function TrainingScreen() {
 
       {loading ? <ActivityIndicator color={colors.accent} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {!loading && !hasScenarios ? <Text style={styles.empty}>Noch keine Szenarien gefunden. Bitte prüfe die Supabase Migration.</Text> : null}
 
       {Object.entries(grouped).map(([category, scenarios]) =>
         scenarios.length ? (
@@ -58,5 +60,9 @@ const styles = StyleSheet.create({
   },
   error: {
     color: colors.error
+  },
+  empty: {
+    color: colors.muted,
+    lineHeight: 21
   }
 });
