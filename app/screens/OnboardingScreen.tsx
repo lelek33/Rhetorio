@@ -7,6 +7,7 @@ import { ScreenContainer } from "../components/ScreenContainer";
 import { colors } from "../constants/colors";
 import { typography } from "../constants/typography";
 import { AuthStackParamList } from "../navigation/types";
+import { setOnboardingSeen } from "../services/onboarding";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Onboarding">;
 
@@ -33,9 +34,13 @@ export function OnboardingScreen({ navigation }: Props) {
   const current = slides[index];
   const lastSlide = index === slides.length - 1;
 
-  function next() {
-    if (lastSlide) navigation.navigate("Auth");
-    else setIndex((value) => value + 1);
+  async function next() {
+    if (lastSlide) {
+      await setOnboardingSeen();
+      navigation.replace("Auth");
+    } else {
+      setIndex((value) => value + 1);
+    }
   }
 
   return (
