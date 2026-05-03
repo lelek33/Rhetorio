@@ -1,5 +1,4 @@
 import { HistoryItem, TrainingSession } from "../../types/session";
-import { canStartSession } from "./profiles";
 import { supabase } from "./client";
 
 type HistoryRow = TrainingSession & {
@@ -8,9 +7,6 @@ type HistoryRow = TrainingSession & {
 };
 
 export async function startSession(userId: string, scenarioId: string): Promise<TrainingSession> {
-  const permission = await canStartSession(userId);
-  if (!permission.allowed) throw new Error("SESSION_LIMIT_REACHED");
-
   const { data, error } = await supabase
     .from("sessions")
     .insert({ user_id: userId, scenario_id: scenarioId, status: "active" })
