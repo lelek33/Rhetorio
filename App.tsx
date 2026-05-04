@@ -3,6 +3,8 @@ import "react-native-url-polyfill/auto";
 
 import { NavigationContainer } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AppNavigator } from "./app/navigation/AppNavigator";
 import { AuthProvider, useAuth } from "./app/hooks/useAuth";
@@ -10,9 +12,13 @@ import { colors } from "./app/constants/colors";
 
 export default function App() {
   return (
-    <AuthProvider>
-      <RootNavigation />
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <RootNavigation />
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
