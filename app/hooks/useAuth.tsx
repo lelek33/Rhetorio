@@ -39,19 +39,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data } = await withTimeout(supabase.auth.getSession(), authLoadTimeoutMs);
         if (!mounted) return;
         setSession(data.session);
-        if (data.session?.user) {
-          try {
-            const loaded = await ensureProfile(data.session.user.id, data.session.user.email);
-            if (mounted) setProfile(loaded);
-          } catch {
-            if (mounted) setProfile(null);
-          }
-        }
       } catch {
-        if (mounted) {
-          setSession(null);
-          setProfile(null);
-        }
+        if (mounted) setSession(null);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -59,19 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     loadInitialSession();
 
-    const { data } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+    // Avoid awaiting Supabase calls inside onAuthStateChange — supabase-js v2
+    // serialises auth callbacks behind a lock, so DB queries here can deadlock
+    // and leave the UI unresponsive after a sign-in.
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
       setSession(nextSession);
-      if (nextSession?.user) {
-        try {
-          const loaded = await ensureProfile(nextSession.user.id, nextSession.user.email);
-          setProfile(loaded);
-        } catch {
-          setProfile(null);
-        }
-      } else {
-        setProfile(null);
-      }
     });
 
     return () => {
@@ -79,6 +61,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) {
+      setProfile(null);
+      return;
+    }
+
+    let cancelled = false;
+    ensureProfile(userId, session?.user?.email ?? null)
+      .then((loaded) => {
+        if (!cancelled) setProfile(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setProfile(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id, session?.user?.email]);
 
   const value = useMemo(
     () => ({

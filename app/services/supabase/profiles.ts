@@ -30,12 +30,15 @@ export async function updateTrainingGoal(userId: string, trainingGoal: string) {
 }
 
 export async function canStartSession(userId: string) {
+  // Temporarily disabled for testing — always allow starting a session so the
+  // upgrade screen is never triggered. Re-enable the limit check when the
+  // premium flow goes live again.
   const profile = await ensureProfile(userId);
-  const limit = profile.subscription_status === "premium" ? PREMIUM_MONTHLY_LIMIT : FREE_MONTHLY_LIMIT;
   const used = await countSessionsThisMonth(userId);
+  const limit = profile.subscription_status === "premium" ? PREMIUM_MONTHLY_LIMIT : FREE_MONTHLY_LIMIT;
 
   return {
-    allowed: used < limit,
+    allowed: true,
     used,
     limit,
     status: profile.subscription_status
