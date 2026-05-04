@@ -13,8 +13,18 @@ const realtimeCallsUrl = "https://api.openai.com/v1/realtime/calls";
 export async function createRealtimeSession(): Promise<RealtimeSessionToken> {
   const { data, error } = await supabase.functions.invoke<RealtimeSessionToken>("create-realtime-session");
   if (error) throw new Error(await extractFunctionErrorMessage(error));
-  if (!data?.client_secret?.value) throw new Error("Kein Realtime Client Secret erhalten.");
+  if (!data?.client_secret?.value) {
+    throw new Error(`Realtime-Antwort unvollständig: ${safeStringify(data)}`);
+  }
   return data;
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? "(leer)";
+  } catch {
+    return String(value);
+  }
 }
 
 async function extractFunctionErrorMessage(error: unknown): Promise<string> {
