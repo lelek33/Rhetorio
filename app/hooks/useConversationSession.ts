@@ -35,12 +35,6 @@ export function useConversationSession(userId: string | undefined, scenario: Sce
     try {
       const created = await startSession(userId, scenario.id);
       setSession(created);
-      const greeting = await createMessage(
-        created.id,
-        "assistant",
-        scenario.category === "Bewerbung" ? "Guten Tag, erzählen Sie mir bitte kurz etwas über sich." : "Hi, schön dich kennenzulernen. Wie bist du heute hier gelandet?"
-      );
-      setMessages([greeting]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Session konnte nicht gestartet werden.");
     } finally {
