@@ -1,3 +1,5 @@
+import { Scenario } from "../../types/scenario";
+
 export type RealtimeMode = "idle" | "connecting" | "connected" | "speaking" | "error";
 
 export type RealtimeClientSecret = {
@@ -23,7 +25,7 @@ export type RealtimeVoiceConnection = {
 
 export type StartRealtimeVoiceOptions = {
   sessionId?: string;
-  scenarioTitle?: string;
+  scenario?: Scenario | null;
   onModeChange: (mode: RealtimeMode) => void;
   onEvent: (event: RealtimeEvent) => void;
 };
