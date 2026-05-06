@@ -1,6 +1,6 @@
 import { HistoryItem, TrainingSession } from "../../types/session";
-import { canStartSession } from "./profiles";
 import { supabase } from "./client";
+import { canStartSession } from "./profiles";
 
 type HistoryRow = TrainingSession & {
   scenarios?: { title?: string } | null;
