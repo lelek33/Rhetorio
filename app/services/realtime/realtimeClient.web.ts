@@ -74,7 +74,14 @@ export async function startRealtimeVoice(options: StartRealtimeVoiceOptions): Pr
         autoGainControl: true
       }
     });
-    mediaStream.getAudioTracks().forEach((track) => pc.addTrack(track, mediaStream as MediaStream));
+    const micStream = mediaStream;
+    mediaStream.getAudioTracks().forEach((track) => pc.addTrack(track, micStream));
+
+    const setMicEnabled = (enabled: boolean) => {
+      micStream.getAudioTracks().forEach((track) => {
+        if (track.enabled !== enabled) track.enabled = enabled;
+      });
+    };
 
     dataChannel = pc.createDataChannel("oai-events");
     dataChannel.addEventListener("open", () => {
@@ -102,7 +109,7 @@ export async function startRealtimeVoice(options: StartRealtimeVoiceOptions): Pr
         }
       });
     });
-    dataChannel.addEventListener("message", (event) => handleEvent(event.data, options));
+    dataChannel.addEventListener("message", (event) => handleEvent(event.data, options, setMicEnabled));
     dataChannel.addEventListener("error", () => options.onModeChange("error"));
     dataChannel.addEventListener("close", () => options.onModeChange("idle"));
 
@@ -186,15 +193,34 @@ function assertWebRtcSupport() {
   }
 }
 
-function handleEvent(rawData: string, options: StartRealtimeVoiceOptions) {
+function handleEvent(rawData: string, options: StartRealtimeVoiceOptions, setMicEnabled?: (enabled: boolean) => void) {
   try {
     const event = JSON.parse(rawData) as RealtimeEvent;
     options.onEvent(event);
 
-    if (event.type === "input_audio_buffer.speech_started" || event.type === "response.audio.delta") {
+    // Mute the mic while the assistant is generating audio so the phone
+    // speaker output cannot bleed back in. Re-enable on response.done.
+    if (
+      event.type === "response.created" ||
+      event.type === "response.audio.delta" ||
+      event.type === "response.output_audio.delta"
+    ) {
+      setMicEnabled?.(false);
       options.onModeChange("speaking");
     }
-    if (event.type === "input_audio_buffer.speech_stopped" || event.type === "response.audio.done" || event.type === "response.done") {
+    if (
+      event.type === "response.done" ||
+      event.type === "response.audio.done" ||
+      event.type === "response.output_audio.done" ||
+      event.type === "response.cancelled"
+    ) {
+      setMicEnabled?.(true);
+      options.onModeChange("connected");
+    }
+    if (event.type === "input_audio_buffer.speech_started") {
+      options.onModeChange("speaking");
+    }
+    if (event.type === "input_audio_buffer.speech_stopped") {
       options.onModeChange("connected");
     }
     if (typeof event.type === "string" && event.type.includes("error")) {
