@@ -19,22 +19,24 @@ export function MessageBubble({ message }: Props) {
 
 const styles = StyleSheet.create({
   bubble: {
-    maxWidth: "86%",
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 18
+    maxWidth: "88%",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 22
   },
   user: {
     alignSelf: "flex-end",
-    backgroundColor: colors.primary,
-    borderBottomRightRadius: 6
+    backgroundColor: "#E5E8FF",
+    borderWidth: 1,
+    borderColor: "#D6DBFF",
+    borderBottomRightRadius: 8
   },
   assistant: {
     alignSelf: "flex-start",
-    backgroundColor: colors.card,
+    backgroundColor: "#FFFFFFE6",
     borderWidth: 1,
-    borderColor: colors.border,
-    borderBottomLeftRadius: 6
+    borderColor: "#EEF0F5",
+    borderBottomLeftRadius: 8
   },
   text: {
     color: colors.text,
@@ -42,6 +44,6 @@ const styles = StyleSheet.create({
     lineHeight: 21
   },
   userText: {
-    color: colors.card
+    color: "#1E2746"
   }
 });
