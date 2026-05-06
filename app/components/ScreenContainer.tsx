@@ -8,10 +8,11 @@ import { spacing } from "../constants/spacing";
 type Props = {
   children: ReactNode;
   scroll?: boolean;
+  contentStyle?: any;
 };
 
-export function ScreenContainer({ children, scroll = true }: Props) {
-  const content = <View style={styles.content}>{children}</View>;
+export function ScreenContainer({ children, scroll = true, contentStyle }: Props) {
+  const content = <View style={[styles.content, contentStyle]}>{children}</View>;
 
   return (
     <SafeAreaView style={styles.safe}>
