@@ -67,7 +67,13 @@ export async function startRealtimeVoice(options: StartRealtimeVoiceOptions): Pr
       });
     };
 
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
     mediaStream.getAudioTracks().forEach((track) => pc.addTrack(track, mediaStream as MediaStream));
 
     dataChannel = pc.createDataChannel("oai-events");
@@ -83,6 +89,9 @@ export async function startRealtimeVoice(options: StartRealtimeVoiceOptions): Pr
           },
           turn_detection: {
             type: "server_vad",
+            threshold: 0.75,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 800,
             create_response: true,
             interrupt_response: true
           }
