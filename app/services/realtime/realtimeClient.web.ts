@@ -1,4 +1,5 @@
 import { supabase } from "../supabase/client";
+import { Scenario } from "../../types/scenario";
 import { RealtimeEvent, RealtimeSessionToken, RealtimeVoiceConnection, StartRealtimeVoiceOptions } from "./realtimeTypes";
 
 type WebRealtimeConnection = RealtimeVoiceConnection & {
@@ -72,15 +73,22 @@ export async function startRealtimeVoice(options: StartRealtimeVoiceOptions): Pr
     dataChannel = pc.createDataChannel("oai-events");
     dataChannel.addEventListener("open", () => {
       options.onModeChange("connected");
-      sendJson(dataChannel as RTCDataChannel, {
+      const channel = dataChannel as RTCDataChannel;
+      sendJson(channel, {
         type: "session.update",
         session: {
-          instructions: buildInstructions(options.scenarioTitle),
+          instructions: buildInstructions(options.scenario),
           turn_detection: {
             type: "server_vad",
             create_response: true,
             interrupt_response: true
           }
+        }
+      });
+      sendJson(channel, {
+        type: "response.create",
+        response: {
+          instructions: buildOpeningInstruction(options.scenario)
         }
       });
     });
@@ -192,13 +200,38 @@ function sendJson(dataChannel: RTCDataChannel, event: RealtimeEvent) {
   dataChannel.send(JSON.stringify(event));
 }
 
-function buildInstructions(scenarioTitle?: string) {
+function buildInstructions(scenario?: Scenario | null) {
+  if (!scenario) {
+    return [
+      "Du bist ein realistischer deutschsprachiger Gesprächspartner für ein Voice-Roleplay.",
+      "Bleibe im Charakter, antworte kurz, natürlich und menschlich.",
+      "Frage NICHT, worüber gesprochen werden soll — eröffne das Gespräch selbst passend zur Situation.",
+      "Gib während des Gesprächs kein Coaching-Feedback und keine Meta-Kommentare."
+    ].join(" ");
+  }
+
+  const lines = [
+    "Du übernimmst jetzt eine Rolle in einem deutschsprachigen Voice-Roleplay. Bleib durchgehend im Charakter und sprich Deutsch.",
+    `Szenario: ${scenario.title}.`,
+    `Situation: ${scenario.situation}`,
+    `Deine Rolle und Verhalten: ${scenario.system_prompt}`,
+    `Ziel des Nutzers in dieser Übung: ${scenario.goal}`,
+    "Sehr wichtig:",
+    "- Eröffne das Gespräch sofort im Charakter, passend zur Situation. Frage NIEMALS „Worüber willst du sprechen?" oder „Wie kann ich dir helfen?".",
+    "- Bleib in der Rolle. Brich nicht aus, nenne dich nicht KI, gib keine Coaching-Tipps oder Meta-Kommentare während des Gesprächs.",
+    "- Antworte kurz, menschlich und konversationell, mit gelegentlichen offenen Rückfragen.",
+    "- Wenn der Nutzer kurz oder unsicher antwortet, hilf ihm sanft weiter, ohne aus der Rolle zu fallen."
+  ];
+
+  return lines.join("\n");
+}
+
+function buildOpeningInstruction(scenario?: Scenario | null) {
+  if (!scenario) {
+    return "Eröffne jetzt das Gespräch sofort im Charakter mit einem kurzen, natürlichen Einstiegssatz auf Deutsch. Stelle keine Meta-Frage.";
+  }
   return [
-    "Du bist Rheto, ein deutschsprachiger Gesprächscoach.",
-    "Führe jetzt ein realistisches Voice-Roleplay, aber gib während des Gesprächs kein Coaching-Feedback.",
-    "Antworte kurz, natürlich und menschlich.",
-    scenarioTitle ? `Aktuelles Szenario: ${scenarioTitle}.` : ""
-  ]
-    .filter(Boolean)
-    .join(" ");
+    `Eröffne jetzt das Roleplay sofort im Charakter mit einem kurzen, natürlichen Einstiegssatz auf Deutsch, der zur Situation „${scenario.situation}" passt.`,
+    "Sprich aus der Rolle heraus, nicht als Assistent. Stelle keine Meta-Fragen wie „Worüber willst du reden?" oder „Wobei kann ich helfen?"."
+  ].join(" ");
 }

@@ -3,13 +3,14 @@ import { Platform } from "react-native";
 
 import { recordVoiceUsage, startRealtimeVoice } from "../services/realtime/realtimeClient";
 import { RealtimeEvent, RealtimeMode, RealtimeVoiceConnection } from "../services/realtime/realtimeTypes";
+import { Scenario } from "../types/scenario";
 
 type Options = {
   sessionId?: string;
-  scenarioTitle?: string;
+  scenario?: Scenario | null;
 };
 
-export function useRealtimeVoice({ sessionId, scenarioTitle }: Options = {}) {
+export function useRealtimeVoice({ sessionId, scenario }: Options = {}) {
   const [mode, setMode] = useState<RealtimeMode>("idle");
   const [events, setEvents] = useState<RealtimeEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export function useRealtimeVoice({ sessionId, scenarioTitle }: Options = {}) {
     try {
       connectionRef.current = await startRealtimeVoice({
         sessionId,
-        scenarioTitle,
+        scenario,
         onModeChange: setMode,
         onEvent: (event) => setEvents((current) => [event, ...current].slice(0, 30))
       });

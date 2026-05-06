@@ -22,7 +22,7 @@ export function SessionScreen({ navigation, route }: Props) {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [text, setText] = useState("");
   const conversation = useConversationSession(user?.id, scenario);
-  const voice = useRealtimeVoice({ sessionId: conversation.session?.id, scenarioTitle: scenario?.title });
+  const voice = useRealtimeVoice({ sessionId: conversation.session?.id, scenario });
 
   useEffect(() => {
     getScenario(route.params.scenarioId).then(setScenario).catch(() => setScenario(null));
