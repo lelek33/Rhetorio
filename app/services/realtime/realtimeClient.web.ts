@@ -77,11 +77,27 @@ export async function startRealtimeVoice(options: StartRealtimeVoiceOptions): Pr
     const micStream = mediaStream;
     mediaStream.getAudioTracks().forEach((track) => pc.addTrack(track, micStream));
 
+    let unmuteTimeoutId: ReturnType<typeof setTimeout> | null = null;
     const setMicEnabled = (enabled: boolean) => {
       micStream.getAudioTracks().forEach((track) => {
         if (track.enabled !== enabled) track.enabled = enabled;
       });
     };
+    const muteMicNow = () => {
+      if (unmuteTimeoutId) {
+        clearTimeout(unmuteTimeoutId);
+        unmuteTimeoutId = null;
+      }
+      setMicEnabled(false);
+    };
+    const scheduleUnmute = () => {
+      if (unmuteTimeoutId) clearTimeout(unmuteTimeoutId);
+      unmuteTimeoutId = setTimeout(() => {
+        setMicEnabled(true);
+        unmuteTimeoutId = null;
+      }, 1500);
+    };
+    const micControls = { muteMicNow, scheduleUnmute };
 
     dataChannel = pc.createDataChannel("oai-events");
     dataChannel.addEventListener("open", () => {
@@ -109,7 +125,7 @@ export async function startRealtimeVoice(options: StartRealtimeVoiceOptions): Pr
         }
       });
     });
-    dataChannel.addEventListener("message", (event) => handleEvent(event.data, options, setMicEnabled));
+    dataChannel.addEventListener("message", (event) => handleEvent(event.data, options, micControls));
     dataChannel.addEventListener("error", () => options.onModeChange("error"));
     dataChannel.addEventListener("close", () => options.onModeChange("idle"));
 
@@ -193,28 +209,33 @@ function assertWebRtcSupport() {
   }
 }
 
-function handleEvent(rawData: string, options: StartRealtimeVoiceOptions, setMicEnabled?: (enabled: boolean) => void) {
+type MicControls = {
+  muteMicNow: () => void;
+  scheduleUnmute: () => void;
+};
+
+function handleEvent(rawData: string, options: StartRealtimeVoiceOptions, micControls?: MicControls) {
   try {
     const event = JSON.parse(rawData) as RealtimeEvent;
     options.onEvent(event);
 
     // Mute the mic while the assistant is generating audio so the phone
-    // speaker output cannot bleed back in. Re-enable on response.done.
+    // speaker output cannot bleed back in. Re-enable with a delay after
+    // response.done so any audio still buffered in the speaker has time to
+    // fade out before the mic listens again.
     if (
       event.type === "response.created" ||
       event.type === "response.audio.delta" ||
       event.type === "response.output_audio.delta"
     ) {
-      setMicEnabled?.(false);
+      micControls?.muteMicNow();
       options.onModeChange("speaking");
     }
     if (
       event.type === "response.done" ||
-      event.type === "response.audio.done" ||
-      event.type === "response.output_audio.done" ||
       event.type === "response.cancelled"
     ) {
-      setMicEnabled?.(true);
+      micControls?.scheduleUnmute();
       options.onModeChange("connected");
     }
     if (event.type === "input_audio_buffer.speech_started") {
