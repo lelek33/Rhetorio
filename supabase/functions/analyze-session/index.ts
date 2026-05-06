@@ -48,21 +48,50 @@ Deno.serve(async (req) => {
 
     if (!session || session.user_id !== userData.user.id) throw new Error("Session nicht gefunden.");
 
-    const { data: scenario } = await admin.from("scenarios").select("title").eq("id", session.scenario_id).single();
+    const { data: scenario } = await admin
+      .from("scenarios")
+      .select("title,situation,goal,criteria,system_prompt")
+      .eq("id", session.scenario_id)
+      .single();
     const { data: messages } = await admin
       .from("messages")
       .select("role,content")
       .eq("session_id", body.session_id)
       .order("created_at", { ascending: true });
 
-    const transcript = (messages ?? []).map((message) => `${message.role}: ${message.content}`).join("\n");
-    const prompt = `Analysiere dieses deutschsprachige Trainingsgespraech als klarer, motivierender Kommunikationscoach.
-Szenario: ${scenario?.title ?? "Training"}
+    const transcript = (messages ?? [])
+      .map((message) => {
+        const speaker = message.role === "user" ? "TRAINEE (zu bewerten)" : "ROLEPLAY-PARTNER (KI in Rolle, NICHT bewerten)";
+        return `${speaker}: ${message.content}`;
+      })
+      .join("\n");
 
-Transkript:
+    const userMessageCount = (messages ?? []).filter((message) => message.role === "user").length;
+    const criteriaList = Array.isArray(scenario?.criteria) && scenario.criteria.length
+      ? scenario.criteria.map((c: string) => `- ${c}`).join("\n")
+      : "- Klarheit\n- Struktur\n- Natürlichkeit";
+
+    const prompt = `Du bist ein klarer, motivierender deutschsprachiger Kommunikationscoach.
+Du bewertest AUSSCHLIESSLICH die Beitraege des TRAINEE in einem Roleplay-Trainingsgespraech.
+Den ROLEPLAY-PARTNER (die KI in der Rolle) bewertest du NICHT, du analysierst nicht seine Formulierungen, sondern nutzt sie nur als Kontext.
+
+Szenario: ${scenario?.title ?? "Training"}
+Situation: ${scenario?.situation ?? ""}
+Ziel des Trainee: ${scenario?.goal ?? ""}
+Bewertungskriterien:
+${criteriaList}
+
+TRANSKRIPT (chronologisch):
 ${transcript}
 
-Gib ausschliesslich valides JSON im exakt folgenden Schema zurueck:
+Wichtige Regeln:
+- Bewerte ausschliesslich die ${userMessageCount} TRAINEE-Aeusserungen.
+- Wenn der TRAINEE wenig oder gar nichts gesagt hat, sage das ehrlich, gib niedrige Scores und schlage Konkreteres fuer den naechsten Versuch vor.
+- Erfinde KEINE Aussagen, die der TRAINEE nicht gesagt hat.
+- Zitiere in "better_phrases.original" nur echte Saetze des TRAINEE und nichts vom ROLEPLAY-PARTNER.
+- Feedback in deutsch, konkret, kurz, ehrlich, nicht beleidigend.
+
+Antworte ausschliesslich mit valider JSON im exakten Schema:
 {
   "score_total": number,
   "conversation_flow": number,
@@ -75,9 +104,7 @@ Gib ausschliesslich valides JSON im exakt folgenden Schema zurueck:
   "better_phrases": [{"original": string, "improved": string, "reason": string}],
   "next_exercise": string,
   "summary": string
-}
-
-Regeln: Feedback konkret, deutsch, kurz, hilfreich, ehrlich und nicht beleidigend. Liefere immer mindestens zwei bessere Formulierungen.`;
+}`;
 
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
