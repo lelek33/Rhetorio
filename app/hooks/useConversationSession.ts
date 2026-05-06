@@ -15,11 +15,18 @@ export function useConversationSession(userId: string | undefined, scenario: Sce
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<SessionMode>("text");
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!session?.started_at) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [session?.started_at]);
 
   const elapsedSeconds = useMemo(() => {
     if (!session?.started_at) return 0;
-    return Math.max(0, Math.round((Date.now() - new Date(session.started_at).getTime()) / 1000));
-  }, [session?.started_at, messages.length]);
+    return Math.max(0, Math.round((now - new Date(session.started_at).getTime()) / 1000));
+  }, [session?.started_at, now]);
 
   const begin = useCallback(async () => {
     if (!userId || !scenario || session) return;
