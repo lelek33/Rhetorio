@@ -64,23 +64,29 @@ export function VoiceOrb({ mode, onPress }: Props) {
       <Animated.View style={[styles.aura, { opacity, transform: [{ scale }] }]} />
       <Animated.View style={[styles.orbWrap, { opacity, transform: [{ scale }] }]}>
         <View style={[styles.orb, orbGradient]} />
-        <View style={styles.highlightBig} />
-        <View style={styles.highlightSmall} />
       </Animated.View>
     </Pressable>
   );
 }
 
 const orbGradient: ViewStyle = {
-  // React Native Web passes unknown style keys straight to the underlying
-  // <div>, so we can use a CSS radial gradient and box-shadow to get the
-  // glassy iridescent look without an SVG/gradient library.
+  // React Native Web passes unknown style keys through to the rendered
+  // <div>, so we use stacked CSS radial gradients to build the glassy
+  // iridescent look without an SVG/gradient library. Order matters: the
+  // first layer is on top.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ...({
-    background:
-      "radial-gradient(circle at 32% 28%, #ffffff 0%, #e2e8ff 18%, #b8c2ff 42%, #8d7bff 72%, #b683ff 100%)",
-    boxShadow:
-      "0 0 60px 18px rgba(155, 130, 255, 0.35), inset -20px -30px 50px rgba(110, 80, 200, 0.35), inset 20px 30px 60px rgba(255, 255, 255, 0.55)"
+    background: [
+      "radial-gradient(ellipse 65% 55% at 24% 78%, rgba(150, 95, 230, 0.55), rgba(180, 130, 240, 0.2) 40%, rgba(180, 130, 240, 0) 70%)",
+      "radial-gradient(ellipse 50% 45% at 58% 24%, rgba(150, 220, 255, 0.7), rgba(195, 235, 255, 0.32) 50%, rgba(195, 235, 255, 0) 78%)",
+      "radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.92) 0%, rgba(228, 238, 252, 0.7) 55%, rgba(208, 222, 248, 0.55) 100%)"
+    ].join(", "),
+    boxShadow: [
+      "0 28px 60px -18px rgba(140, 110, 220, 0.42)",
+      "inset 0 0 0 1.5px rgba(255, 255, 255, 0.88)",
+      "inset -18px -22px 50px rgba(170, 140, 230, 0.18)",
+      "inset 18px 18px 60px rgba(255, 255, 255, 0.55)"
+    ].join(", ")
   } as ViewStyle)
 };
 
@@ -92,10 +98,10 @@ const styles = StyleSheet.create({
   },
   aura: {
     position: "absolute",
-    width: 360,
-    height: 360,
-    borderRadius: 180,
-    backgroundColor: "rgba(155, 130, 255, 0.18)"
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+    backgroundColor: "rgba(180, 200, 255, 0.14)"
   },
   orbWrap: {
     width: 240,
@@ -108,25 +114,6 @@ const styles = StyleSheet.create({
     width: 240,
     height: 240,
     borderRadius: 120,
-    backgroundColor: "#a8b3ff"
-  },
-  highlightBig: {
-    position: "absolute",
-    top: 28,
-    left: 56,
-    width: 70,
-    height: 38,
-    borderRadius: 35,
-    backgroundColor: "rgba(255, 255, 255, 0.55)",
-    transform: [{ rotate: "-25deg" }]
-  },
-  highlightSmall: {
-    position: "absolute",
-    top: 70,
-    left: 56,
-    width: 22,
-    height: 14,
-    borderRadius: 11,
-    backgroundColor: "rgba(255, 255, 255, 0.7)"
+    backgroundColor: "#eef3ff"
   }
 });
