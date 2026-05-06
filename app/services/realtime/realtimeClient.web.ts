@@ -220,7 +220,7 @@ function buildInstructions(scenario?: Scenario | null) {
     `Deine Rolle und Verhalten: ${scenario.system_prompt}`,
     `Ziel des Nutzers in dieser Übung: ${scenario.goal}`,
     "Sehr wichtig:",
-    "- Eröffne das Gespräch sofort im Charakter, passend zur Situation. Frage NIEMALS „Worüber willst du sprechen?" oder „Wie kann ich dir helfen?".",
+    "- Eröffne das Gespräch sofort im Charakter, passend zur Situation. Frage NIEMALS 'Worüber willst du sprechen?' oder 'Wie kann ich dir helfen?'.",
     "- Bleib in der Rolle. Brich nicht aus, nenne dich nicht KI, gib keine Coaching-Tipps oder Meta-Kommentare während des Gesprächs.",
     "- Antworte kurz, menschlich und konversationell, mit gelegentlichen offenen Rückfragen.",
     "- Wenn der Nutzer kurz oder unsicher antwortet, hilf ihm sanft weiter, ohne aus der Rolle zu fallen."
@@ -234,7 +234,7 @@ function buildOpeningInstruction(scenario?: Scenario | null) {
     return "Eröffne jetzt das Gespräch sofort im Charakter mit einem kurzen, natürlichen Einstiegssatz auf Deutsch. Stelle keine Meta-Frage.";
   }
   return [
-    `Eröffne jetzt das Roleplay sofort im Charakter mit einem kurzen, natürlichen Einstiegssatz auf Deutsch, der zur Situation „${scenario.situation}" passt.`,
-    "Sprich aus der Rolle heraus, nicht als Assistent. Stelle keine Meta-Fragen wie „Worüber willst du reden?" oder „Wobei kann ich helfen?"."
+    `Eröffne jetzt das Roleplay sofort im Charakter mit einem kurzen, natürlichen Einstiegssatz auf Deutsch, der zur Situation '${scenario.situation}' passt.`,
+    "Sprich aus der Rolle heraus, nicht als Assistent. Stelle keine Meta-Fragen wie 'Worüber willst du reden?' oder 'Wobei kann ich helfen?'."
   ].join(" ");
 }
