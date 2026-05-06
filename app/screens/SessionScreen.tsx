@@ -67,6 +67,9 @@ export function SessionScreen({ navigation, route }: Props) {
         <Text style={styles.voiceStatus}>
           {Platform.OS === "web" ? `Voice: ${voice.mode === "idle" ? "bereit" : voice.mode}` : "Live Voice wird später nativ aktiviert."}
         </Text>
+        {Platform.OS === "web" && voice.mode === "idle" ? (
+          <Text style={styles.voiceHint}>Tipp: Für die beste Voice-Erfahrung Kopfhörer nutzen — sonst kann der Lautsprecher den Gesprächsfluss stören.</Text>
+        ) : null}
 
         <FlatList
           data={conversation.messages}
@@ -127,6 +130,11 @@ const styles = StyleSheet.create({
   voiceStatus: {
     color: colors.muted,
     fontSize: 13
+  },
+  voiceHint: {
+    color: colors.muted,
+    fontSize: 12,
+    fontStyle: "italic"
   },
   messages: {
     gap: 10,
