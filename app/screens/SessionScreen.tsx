@@ -1,13 +1,13 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { ArrowLeft, Send } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "../components/AppButton";
-import { MessageBubble } from "../components/MessageBubble";
 import { ScreenContainer } from "../components/ScreenContainer";
-import { VoiceButton } from "../components/VoiceButton";
+import { VoiceOrb } from "../components/VoiceOrb";
 import { colors } from "../constants/colors";
+import { typography } from "../constants/typography";
 import { useAuth } from "../hooks/useAuth";
 import { useConversationSession } from "../hooks/useConversationSession";
 import { useRealtimeVoice } from "../hooks/useRealtimeVoice";
@@ -20,7 +20,6 @@ type Props = NativeStackScreenProps<RootStackParamList, "Session">;
 export function SessionScreen({ navigation, route }: Props) {
   const { user } = useAuth();
   const [scenario, setScenario] = useState<Scenario | null>(null);
-  const [text, setText] = useState("");
   const conversation = useConversationSession(user?.id, scenario);
   const voice = useRealtimeVoice({ sessionId: conversation.session?.id, scenario });
 
@@ -32,12 +31,6 @@ export function SessionScreen({ navigation, route }: Props) {
     if (conversation.error === "SESSION_LIMIT_REACHED") navigation.replace("Upgrade");
   }, [conversation.error, navigation]);
 
-  async function send() {
-    const nextText = text;
-    setText("");
-    await conversation.send(nextText);
-  }
-
   async function finish() {
     if (voice.connected || voice.mode === "connecting") await voice.stop();
     const analysis = await conversation.finish();
@@ -46,63 +39,50 @@ export function SessionScreen({ navigation, route }: Props) {
     }
   }
 
+  const idle = voice.mode === "idle" || voice.mode === "error";
+  const subtitle = (() => {
+    if (voice.mode === "speaking") return "Rheto spricht …";
+    if (voice.mode === "connected") return "Du bist dran — sprich einfach los.";
+    if (voice.mode === "connecting") return "Verbinde …";
+    if (voice.mode === "error") return "Verbindung verloren. Tippe zum erneuten Starten.";
+    return "Tippe auf die Kugel, um das Gespräch zu starten.";
+  })();
+
+  const elapsed = `${Math.floor(conversation.elapsedSeconds / 60)}:${String(conversation.elapsedSeconds % 60).padStart(2, "0")}`;
+  const sessionError = conversation.error && conversation.error !== "SESSION_LIMIT_REACHED" ? conversation.error : null;
+  const displayError = sessionError ?? voice.error ?? null;
+
   return (
     <ScreenContainer scroll={false}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboard}>
-        <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.back}>
-            <ArrowLeft color={colors.primary} />
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text style={styles.title}>{scenario?.title ?? "Training"}</Text>
-            <Text style={styles.timer}>
-              {Math.floor(conversation.elapsedSeconds / 60)}:{String(conversation.elapsedSeconds % 60).padStart(2, "0")} ·{" "}
-              {voice.connected ? "Live Voice" : "Textmodus"}
-            </Text>
-          </View>
+      <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.back}>
+          <ArrowLeft color={colors.primary} />
+        </Pressable>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>{scenario?.title ?? "Training"}</Text>
+          <Text style={styles.timer}>{elapsed} · Live Voice</Text>
         </View>
+      </View>
 
-        {conversation.error && conversation.error !== "SESSION_LIMIT_REACHED" ? <Text style={styles.error}>{conversation.error}</Text> : null}
-        {voice.error ? <Text style={styles.error}>{voice.error}</Text> : null}
-        <Text style={styles.voiceStatus}>
-          {Platform.OS === "web" ? `Voice: ${voice.mode === "idle" ? "bereit" : voice.mode}` : "Live Voice wird später nativ aktiviert."}
-        </Text>
-        {Platform.OS === "web" && voice.mode === "idle" ? (
-          <Text style={styles.voiceHint}>Tipp: Für die beste Voice-Erfahrung Kopfhörer nutzen — sonst kann der Lautsprecher den Gesprächsfluss stören.</Text>
-        ) : null}
+      {displayError ? <Text style={styles.error}>{displayError}</Text> : null}
 
-        <FlatList
-          data={conversation.messages}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <MessageBubble message={item} />}
-          contentContainerStyle={styles.messages}
-        />
+      <View style={styles.center}>
+        <VoiceOrb mode={voice.mode} onPress={idle ? voice.start : undefined} />
+        <Text style={styles.subtitle}>{subtitle}</Text>
+        {idle ? <Text style={styles.hint}>Tipp: Kopfhörer nutzen für die beste Klangqualität.</Text> : null}
+      </View>
 
-        <View style={styles.inputRow}>
-          <VoiceButton enabled={Platform.OS === "web"} recording={voice.connected || voice.mode === "connecting"} onPress={voice.toggle} />
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="Antworte Rheto..."
-            multiline
-            style={styles.input}
-          />
-          <Pressable disabled={!text.trim() || conversation.sending} onPress={send} style={styles.send}>
-            <Send color={colors.card} size={20} />
-          </Pressable>
-        </View>
-
-        <AppButton title="Gespräch beenden & Analyse starten" onPress={finish} loading={conversation.loading} variant="secondary" />
-      </KeyboardAvoidingView>
+      <AppButton
+        title="Gespräch beenden & Analyse starten"
+        onPress={finish}
+        loading={conversation.loading}
+        variant="secondary"
+      />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboard: {
-    flex: 1,
-    gap: 12
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -127,45 +107,23 @@ const styles = StyleSheet.create({
   timer: {
     color: colors.muted
   },
-  voiceStatus: {
-    color: colors.muted,
-    fontSize: 13
-  },
-  voiceHint: {
-    color: colors.muted,
-    fontSize: 12,
-    fontStyle: "italic"
-  },
-  messages: {
-    gap: 10,
-    paddingVertical: 10
-  },
   error: {
     color: colors.error
   },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 10
-  },
-  input: {
+  center: {
     flex: 1,
-    minHeight: 50,
-    maxHeight: 110,
-    borderRadius: 16,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: colors.primary
-  },
-  send: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.primary,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    gap: 14
+  },
+  subtitle: {
+    ...typography.body,
+    color: colors.primary,
+    textAlign: "center"
+  },
+  hint: {
+    color: colors.muted,
+    fontSize: 13,
+    textAlign: "center"
   }
 });
