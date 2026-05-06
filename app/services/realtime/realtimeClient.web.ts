@@ -78,6 +78,9 @@ export async function startRealtimeVoice(options: StartRealtimeVoiceOptions): Pr
         type: "session.update",
         session: {
           instructions: buildInstructions(options.scenario),
+          input_audio_transcription: {
+            model: "whisper-1"
+          },
           turn_detection: {
             type: "server_vad",
             create_response: true,
