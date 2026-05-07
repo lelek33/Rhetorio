@@ -26,6 +26,8 @@ export type RealtimeVoiceConnection = {
 export type StartRealtimeVoiceOptions = {
   sessionId?: string;
   scenario?: Scenario | null;
+  voiceId?: string;
+  voiceGender?: "weiblich" | "männlich" | "neutral";
   onModeChange: (mode: RealtimeMode) => void;
   onEvent: (event: RealtimeEvent) => void;
 };

@@ -4,14 +4,16 @@ import { Platform } from "react-native";
 import { recordVoiceUsage, startRealtimeVoice } from "../services/realtime/realtimeClient";
 import { RealtimeEvent, RealtimeMode, RealtimeVoiceConnection } from "../services/realtime/realtimeTypes";
 import { createMessage } from "../services/supabase/messages";
+import { getVoiceOption } from "../services/voicePreference";
 import { Scenario } from "../types/scenario";
 
 type Options = {
   sessionId?: string;
   scenario?: Scenario | null;
+  voiceId?: string;
 };
 
-export function useRealtimeVoice({ sessionId, scenario }: Options = {}) {
+export function useRealtimeVoice({ sessionId, scenario, voiceId }: Options = {}) {
   const [mode, setMode] = useState<RealtimeMode>("idle");
   const [events, setEvents] = useState<RealtimeEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -41,9 +43,12 @@ export function useRealtimeVoice({ sessionId, scenario }: Options = {}) {
       persistedAssistantItemsRef.current = new Set();
       persistedUserItemsRef.current = new Set();
 
+      const voiceOption = getVoiceOption(voiceId);
       connectionRef.current = await startRealtimeVoice({
         sessionId,
         scenario,
+        voiceId: voiceOption.id,
+        voiceGender: voiceOption.gender,
         onModeChange: setMode,
         onEvent: (event) => {
           setEvents((current) => [event, ...current].slice(0, 30));

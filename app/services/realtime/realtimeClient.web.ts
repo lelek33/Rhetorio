@@ -11,8 +11,10 @@ type WebRealtimeConnection = RealtimeVoiceConnection & {
 
 const realtimeCallsUrl = "https://api.openai.com/v1/realtime/calls";
 
-export async function createRealtimeSession(): Promise<RealtimeSessionToken> {
-  const { data, error } = await supabase.functions.invoke<RealtimeSessionToken>("create-realtime-session");
+export async function createRealtimeSession(voiceId?: string): Promise<RealtimeSessionToken> {
+  const { data, error } = await supabase.functions.invoke<RealtimeSessionToken>("create-realtime-session", {
+    body: voiceId ? { voice: voiceId } : undefined
+  });
   if (error) throw new Error(await extractFunctionErrorMessage(error));
   if (!data?.client_secret?.value) {
     throw new Error(`Realtime-Antwort unvollständig: ${safeStringify(data)}`);
@@ -58,7 +60,7 @@ export async function startRealtimeVoice(options: StartRealtimeVoiceOptions): Pr
   let dataChannel: RTCDataChannel | null = null;
 
   try {
-    const token = await createRealtimeSession();
+    const token = await createRealtimeSession(options.voiceId);
 
     pc.ontrack = (event) => {
       audioElement.srcObject = event.streams[0];
@@ -106,7 +108,7 @@ export async function startRealtimeVoice(options: StartRealtimeVoiceOptions): Pr
       sendJson(channel, {
         type: "session.update",
         session: {
-          instructions: buildInstructions(options.scenario),
+          instructions: buildInstructions(options.scenario, options.voiceGender),
           input_audio_transcription: {
             model: "whisper-1"
           },
@@ -121,7 +123,7 @@ export async function startRealtimeVoice(options: StartRealtimeVoiceOptions): Pr
       sendJson(channel, {
         type: "response.create",
         response: {
-          instructions: buildOpeningInstruction(options.scenario)
+          instructions: buildOpeningInstruction(options.scenario, options.voiceGender)
         }
       });
     });
@@ -257,13 +259,26 @@ function sendJson(dataChannel: RTCDataChannel, event: RealtimeEvent) {
   dataChannel.send(JSON.stringify(event));
 }
 
-function buildInstructions(scenario?: Scenario | null) {
+type VoiceGender = "weiblich" | "männlich" | "neutral";
+
+function genderInstruction(gender?: VoiceGender) {
+  if (gender === "männlich") {
+    return "Deine Stimme klingt männlich. Wenn du dich vorstellst und das Szenario keinen Namen vorgibt, nutze einen männlichen Vornamen. Beziehe dich auf dich selbst nur in maskulinen Formen.";
+  }
+  if (gender === "weiblich") {
+    return "Deine Stimme klingt weiblich. Wenn du dich vorstellst und das Szenario keinen Namen vorgibt, nutze einen weiblichen Vornamen. Beziehe dich auf dich selbst nur in femininen Formen.";
+  }
+  return "Wenn du dich vorstellst und das Szenario keinen Namen vorgibt, wähle einen Vornamen, der zu deiner Stimme passt.";
+}
+
+function buildInstructions(scenario?: Scenario | null, gender?: VoiceGender) {
   if (!scenario) {
     return [
       "Du bist ein realistischer deutschsprachiger Gesprächspartner für ein Voice-Roleplay.",
       "Bleibe im Charakter, antworte kurz, natürlich und menschlich.",
       "Frage NICHT, worüber gesprochen werden soll — eröffne das Gespräch selbst passend zur Situation.",
-      "Gib während des Gesprächs kein Coaching-Feedback und keine Meta-Kommentare."
+      "Gib während des Gesprächs kein Coaching-Feedback und keine Meta-Kommentare.",
+      genderInstruction(gender)
     ].join(" ");
   }
 
@@ -273,6 +288,7 @@ function buildInstructions(scenario?: Scenario | null) {
     `Situation: ${scenario.situation}`,
     `Deine Rolle und Verhalten: ${scenario.system_prompt}`,
     `Ziel des Nutzers in dieser Übung: ${scenario.goal}`,
+    genderInstruction(gender),
     "Sehr wichtig:",
     "- Eröffne das Gespräch sofort im Charakter, passend zur Situation. Frage NIEMALS 'Worüber willst du sprechen?' oder 'Wie kann ich dir helfen?'.",
     "- Bleib in der Rolle. Brich nicht aus, nenne dich nicht KI, gib keine Coaching-Tipps oder Meta-Kommentare während des Gesprächs.",
@@ -283,12 +299,14 @@ function buildInstructions(scenario?: Scenario | null) {
   return lines.join("\n");
 }
 
-function buildOpeningInstruction(scenario?: Scenario | null) {
+function buildOpeningInstruction(scenario?: Scenario | null, gender?: VoiceGender) {
+  const genderHint = genderInstruction(gender);
   if (!scenario) {
-    return "Eröffne jetzt das Gespräch sofort im Charakter mit einem kurzen, natürlichen Einstiegssatz auf Deutsch. Stelle keine Meta-Frage.";
+    return `Eröffne jetzt das Gespräch sofort im Charakter mit einem kurzen, natürlichen Einstiegssatz auf Deutsch. Stelle keine Meta-Frage. ${genderHint}`;
   }
   return [
     `Eröffne jetzt das Roleplay sofort im Charakter mit einem kurzen, natürlichen Einstiegssatz auf Deutsch, der zur Situation '${scenario.situation}' passt.`,
-    "Sprich aus der Rolle heraus, nicht als Assistent. Stelle keine Meta-Fragen wie 'Worüber willst du reden?' oder 'Wobei kann ich helfen?'."
+    "Sprich aus der Rolle heraus, nicht als Assistent. Stelle keine Meta-Fragen wie 'Worüber willst du reden?' oder 'Wobei kann ich helfen?'.",
+    genderHint
   ].join(" ");
 }

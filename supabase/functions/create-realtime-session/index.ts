@@ -5,6 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
+const allowedVoices = ["marin", "coral", "cedar", "ash", "alloy", "echo", "shimmer", "sage", "verse", "ballad"];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -14,9 +16,20 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const openAiKey = Deno.env.get("OPENAI_API_KEY");
     const realtimeModel = Deno.env.get("OPENAI_REALTIME_MODEL") ?? "gpt-realtime";
-    const realtimeVoice = Deno.env.get("OPENAI_REALTIME_VOICE") ?? "marin";
+    const defaultVoice = Deno.env.get("OPENAI_REALTIME_VOICE") ?? "marin";
 
     if (!openAiKey) throw new Error("OPENAI_API_KEY ist nicht gesetzt.");
+
+    let requestedVoice: string | undefined;
+    try {
+      if (req.headers.get("content-type")?.includes("application/json")) {
+        const body = await req.json();
+        if (typeof body?.voice === "string") requestedVoice = body.voice;
+      }
+    } catch {
+      // Body is optional — fall back to default voice if absent or unparseable.
+    }
+    const realtimeVoice = requestedVoice && allowedVoices.includes(requestedVoice) ? requestedVoice : defaultVoice;
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } }
