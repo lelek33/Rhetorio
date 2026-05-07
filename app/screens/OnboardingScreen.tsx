@@ -1,13 +1,15 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "../components/AppButton";
 import { ScreenContainer } from "../components/ScreenContainer";
+import { VoicePicker } from "../components/VoicePicker";
 import { colors } from "../constants/colors";
 import { typography } from "../constants/typography";
 import { AuthStackParamList } from "../navigation/types";
 import { setOnboardingSeen } from "../services/onboarding";
+import { defaultVoiceId, getVoicePreference, setVoicePreference } from "../services/voicePreference";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Onboarding">;
 
@@ -31,11 +33,22 @@ const goals = ["Smalltalk", "Bewerbung", "Gehaltsverhandlung", "Selbstbewusster 
 export function OnboardingScreen({ navigation }: Props) {
   const [index, setIndex] = useState(0);
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
+  const [voiceId, setVoiceId] = useState<string>(defaultVoiceId);
   const current = slides[index];
   const lastSlide = index === slides.length - 1;
 
+  useEffect(() => {
+    getVoicePreference().then(setVoiceId);
+  }, []);
+
+  async function pickVoice(nextVoiceId: string) {
+    setVoiceId(nextVoiceId);
+    await setVoicePreference(nextVoiceId);
+  }
+
   async function next() {
     if (lastSlide) {
+      await setVoicePreference(voiceId);
       await setOnboardingSeen();
       navigation.replace("Auth");
     } else {
@@ -58,19 +71,27 @@ export function OnboardingScreen({ navigation }: Props) {
       </View>
 
       {lastSlide ? (
-        <View style={styles.goalWrap}>
-          <Text style={styles.sectionTitle}>Was möchtest du verbessern?</Text>
-          <View style={styles.goalGrid}>
-            {goals.map((goal) => (
-              <Pressable
-                key={goal}
-                onPress={() => setSelectedGoal(goal)}
-                style={[styles.goal, selectedGoal === goal && styles.goalSelected]}
-              >
-                <Text style={[styles.goalText, selectedGoal === goal && styles.goalTextSelected]}>{goal}</Text>
-              </Pressable>
-            ))}
+        <View style={styles.lastSlide}>
+          <View style={styles.goalWrap}>
+            <Text style={styles.sectionTitle}>Was möchtest du verbessern?</Text>
+            <View style={styles.goalGrid}>
+              {goals.map((goal) => (
+                <Pressable
+                  key={goal}
+                  onPress={() => setSelectedGoal(goal)}
+                  style={[styles.goal, selectedGoal === goal && styles.goalSelected]}
+                >
+                  <Text style={[styles.goalText, selectedGoal === goal && styles.goalTextSelected]}>{goal}</Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
+          <VoicePicker
+            value={voiceId}
+            onChange={pickVoice}
+            title="Wähle Rhetos Stimme"
+            subtitle="Du kannst sie später jederzeit im Profil ändern."
+          />
         </View>
       ) : null}
 
@@ -114,6 +135,9 @@ const styles = StyleSheet.create({
   activeDot: {
     width: 24,
     backgroundColor: colors.accent
+  },
+  lastSlide: {
+    gap: 22
   },
   goalWrap: {
     gap: 12

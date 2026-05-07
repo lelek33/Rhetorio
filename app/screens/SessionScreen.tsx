@@ -13,6 +13,7 @@ import { useConversationSession } from "../hooks/useConversationSession";
 import { useRealtimeVoice } from "../hooks/useRealtimeVoice";
 import { RootStackParamList } from "../navigation/types";
 import { getScenario } from "../services/supabase/scenarios";
+import { defaultVoiceId, getVoicePreference } from "../services/voicePreference";
 import { Scenario } from "../types/scenario";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Session">;
@@ -20,12 +21,17 @@ type Props = NativeStackScreenProps<RootStackParamList, "Session">;
 export function SessionScreen({ navigation, route }: Props) {
   const { user } = useAuth();
   const [scenario, setScenario] = useState<Scenario | null>(null);
+  const [voiceId, setVoiceId] = useState<string>(defaultVoiceId);
   const conversation = useConversationSession(user?.id, scenario);
-  const voice = useRealtimeVoice({ sessionId: conversation.session?.id, scenario });
+  const voice = useRealtimeVoice({ sessionId: conversation.session?.id, scenario, voiceId });
 
   useEffect(() => {
     getScenario(route.params.scenarioId).then(setScenario).catch(() => setScenario(null));
   }, [route.params.scenarioId]);
+
+  useEffect(() => {
+    getVoicePreference().then(setVoiceId);
+  }, []);
 
   useEffect(() => {
     if (conversation.error === "SESSION_LIMIT_REACHED") navigation.replace("Upgrade");

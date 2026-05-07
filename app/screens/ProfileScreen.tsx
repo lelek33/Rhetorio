@@ -1,20 +1,33 @@
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { LogOut } from "lucide-react-native";
+import { useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "../components/AppButton";
 import { AppCard } from "../components/AppCard";
 import { ScreenContainer } from "../components/ScreenContainer";
+import { VoicePicker } from "../components/VoicePicker";
 import { colors } from "../constants/colors";
 import { typography } from "../constants/typography";
 import { useAuth } from "../hooks/useAuth";
 import { RootStackParamList } from "../navigation/types";
 import { signOut } from "../services/supabase/auth";
+import { defaultVoiceId, getVoicePreference, setVoicePreference } from "../services/voicePreference";
 
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, profile } = useAuth();
+  const [voiceId, setVoiceId] = useState<string>(defaultVoiceId);
+
+  useEffect(() => {
+    getVoicePreference().then(setVoiceId);
+  }, []);
+
+  async function pickVoice(nextVoiceId: string) {
+    setVoiceId(nextVoiceId);
+    await setVoicePreference(nextVoiceId);
+  }
 
   async function logout() {
     try {
@@ -40,6 +53,15 @@ export function ProfileScreen() {
       <AppCard>
         <Text style={styles.label}>Trainingsziel</Text>
         <Text style={styles.value}>{profile?.training_goal ?? "Selbstbewusster sprechen"}</Text>
+      </AppCard>
+
+      <AppCard>
+        <VoicePicker
+          value={voiceId}
+          onChange={pickVoice}
+          title="Rhetos Stimme"
+          subtitle="Wird beim nächsten Voice-Training verwendet."
+        />
       </AppCard>
 
       <AppCard>
