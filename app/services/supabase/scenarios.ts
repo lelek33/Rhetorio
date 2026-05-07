@@ -8,6 +8,7 @@ export async function listScenarios(): Promise<Scenario[]> {
   const { data, error } = await supabase
     .from("scenarios")
     .select("id,title,category,description,difficulty,duration_minutes,system_prompt,is_premium,situation,goal,criteria")
+    .eq("is_custom", false)
     .order("created_at", { ascending: true });
   if (error || !data?.length) return demoScenarios;
 
