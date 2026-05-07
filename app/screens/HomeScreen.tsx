@@ -34,6 +34,13 @@ export function HomeScreen() {
         <AppButton title="Jetzt üben" onPress={() => quickStarts[1] && navigation.navigate("Session", { scenarioId: quickStarts[1].id })} />
       </AppCard>
 
+      <AppCard>
+        <Text style={styles.cardLabel}>Eigenes Training</Text>
+        <Text style={styles.cardTitle}>Lade dein Material hoch</Text>
+        <Text style={styles.cardText}>Skript, CV oder Manuskript hochladen — Rheto baut daraus ein Quiz, Bewerbungsgespräch oder Pitch-Sparring.</Text>
+        <AppButton title="Material hochladen" onPress={() => navigation.navigate("CustomTraining")} variant="secondary" />
+      </AppCard>
+
       <View style={styles.stats}>
         <StatCard label="Trainings diese Woche" value={profile?.free_sessions_used ?? 0} />
         <StatCard label="Bester Score" value={bestScore} />

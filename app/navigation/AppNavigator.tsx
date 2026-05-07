@@ -5,6 +5,7 @@ import { colors } from "../constants/colors";
 import { useAuth } from "../hooks/useAuth";
 import { AnalysisScreen } from "../screens/AnalysisScreen";
 import { AuthScreen } from "../screens/AuthScreen";
+import { CustomTrainingScreen } from "../screens/CustomTrainingScreen";
 import { ScenarioDetailScreen } from "../screens/ScenarioDetailScreen";
 import { SessionScreen } from "../screens/SessionScreen";
 import { UpgradeScreen } from "../screens/UpgradeScreen";
@@ -35,6 +36,7 @@ export function AppNavigator() {
       <Stack.Screen name="Session" component={SessionScreen} />
       <Stack.Screen name="Analysis" component={AnalysisScreen} />
       <Stack.Screen name="Upgrade" component={UpgradeScreen} />
+      <Stack.Screen name="CustomTraining" component={CustomTrainingScreen} />
     </Stack.Navigator>
   );
 }
