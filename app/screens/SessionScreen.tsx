@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ArrowLeft } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "../components/AppButton";
@@ -12,6 +12,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useConversationSession } from "../hooks/useConversationSession";
 import { useRealtimeVoice } from "../hooks/useRealtimeVoice";
 import { RootStackParamList } from "../navigation/types";
+import { buildCustomScenario } from "../services/customTraining";
 import { getScenario } from "../services/supabase/scenarios";
 import { defaultVoiceId, getVoicePreference } from "../services/voicePreference";
 import { Scenario } from "../types/scenario";
@@ -20,14 +21,26 @@ type Props = NativeStackScreenProps<RootStackParamList, "Session">;
 
 export function SessionScreen({ navigation, route }: Props) {
   const { user } = useAuth();
-  const [scenario, setScenario] = useState<Scenario | null>(null);
+  const customTraining = route.params.customTraining;
+  const isCustom = Boolean(customTraining);
+
+  const initialScenario = useMemo<Scenario | null>(
+    () => (customTraining ? buildCustomScenario(customTraining) : null),
+    [customTraining]
+  );
+
+  const [scenario, setScenario] = useState<Scenario | null>(initialScenario);
   const [voiceId, setVoiceId] = useState<string>(defaultVoiceId);
-  const conversation = useConversationSession(user?.id, scenario);
+  const conversation = useConversationSession(user?.id, isCustom ? null : scenario);
   const voice = useRealtimeVoice({ sessionId: conversation.session?.id, scenario, voiceId });
 
+  const customStartRef = useRef<number | null>(null);
+  const [, setNow] = useState(() => Date.now());
+
   useEffect(() => {
+    if (isCustom || !route.params.scenarioId) return;
     getScenario(route.params.scenarioId).then(setScenario).catch(() => setScenario(null));
-  }, [route.params.scenarioId]);
+  }, [route.params.scenarioId, isCustom]);
 
   useEffect(() => {
     getVoicePreference().then(setVoiceId);
@@ -37,8 +50,28 @@ export function SessionScreen({ navigation, route }: Props) {
     if (conversation.error === "SESSION_LIMIT_REACHED") navigation.replace("Upgrade");
   }, [conversation.error, navigation]);
 
+  useEffect(() => {
+    if (!isCustom) return;
+    if ((voice.mode === "connecting" || voice.mode === "connected" || voice.mode === "speaking") && !customStartRef.current) {
+      customStartRef.current = Date.now();
+    }
+    if (voice.mode === "idle") {
+      customStartRef.current = null;
+    }
+  }, [isCustom, voice.mode]);
+
+  useEffect(() => {
+    if (!isCustom) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [isCustom]);
+
   async function finish() {
     if (voice.connected || voice.mode === "connecting") await voice.stop();
+    if (isCustom) {
+      navigation.goBack();
+      return;
+    }
     const analysis = await conversation.finish();
     if (conversation.session && analysis) {
       navigation.replace("Analysis", { sessionId: conversation.session.id, analysis });
@@ -54,9 +87,16 @@ export function SessionScreen({ navigation, route }: Props) {
     return "Tippe auf die Kugel, um das Gespräch zu starten.";
   })();
 
-  const elapsed = `${Math.floor(conversation.elapsedSeconds / 60)}:${String(conversation.elapsedSeconds % 60).padStart(2, "0")}`;
+  const customElapsedSeconds = customStartRef.current
+    ? Math.max(0, Math.round((Date.now() - customStartRef.current) / 1000))
+    : 0;
+  const elapsedSeconds = isCustom ? customElapsedSeconds : conversation.elapsedSeconds;
+  const elapsed = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
+
   const sessionError = conversation.error && conversation.error !== "SESSION_LIMIT_REACHED" ? conversation.error : null;
   const displayError = sessionError ?? voice.error ?? null;
+
+  const finishTitle = isCustom ? "Gespräch beenden" : "Gespräch beenden & Analyse starten";
 
   return (
     <ScreenContainer scroll={false}>
@@ -79,9 +119,9 @@ export function SessionScreen({ navigation, route }: Props) {
       </View>
 
       <AppButton
-        title="Gespräch beenden & Analyse starten"
+        title={finishTitle}
         onPress={finish}
-        loading={conversation.loading}
+        loading={!isCustom && conversation.loading}
         variant="secondary"
       />
     </ScreenContainer>
