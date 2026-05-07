@@ -1,5 +1,6 @@
 import { CustomTraining } from "../types/customTraining";
 import { Scenario } from "../types/scenario";
+import { supabase } from "./supabase/client";
 
 const maxContentChars = 12000;
 
@@ -90,4 +91,29 @@ function defaultTitle(type: CustomTraining["type"]) {
   if (type === "quiz") return "Mein Studienmaterial";
   if (type === "interview") return "Meine Bewerbung";
   return "Mein Vortrag";
+}
+
+export async function createCustomScenarioInDb(userId: string, custom: CustomTraining): Promise<Scenario> {
+  const synthetic = buildCustomScenario(custom);
+  const { data, error } = await supabase
+    .from("scenarios")
+    .insert({
+      user_id: userId,
+      is_custom: true,
+      title: synthetic.title,
+      category: synthetic.category,
+      description: synthetic.description,
+      difficulty: synthetic.difficulty,
+      duration_minutes: synthetic.duration_minutes,
+      system_prompt: synthetic.system_prompt,
+      is_premium: false,
+      situation: synthetic.situation,
+      goal: synthetic.goal,
+      criteria: synthetic.criteria
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data as Scenario;
 }
