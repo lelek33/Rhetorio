@@ -8,7 +8,7 @@ export type AuthStackParamList = {
 export type MainTabParamList = {
   Home: undefined;
   Training: undefined;
-  History: undefined;
+  CustomTraining: undefined;
   Profile: undefined;
 };
 
@@ -18,5 +18,5 @@ export type RootStackParamList = {
   Session: { scenarioId: string };
   Analysis: { sessionId: string; analysis?: Analysis };
   Upgrade: undefined;
-  CustomTraining: undefined;
+  History: undefined;
 };

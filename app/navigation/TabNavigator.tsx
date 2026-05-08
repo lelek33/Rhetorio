@@ -1,8 +1,8 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Clock3, Dumbbell, Home, User } from "lucide-react-native";
+import { Dumbbell, FileText, Home, User } from "lucide-react-native";
 
 import { colors } from "../constants/colors";
-import { HistoryScreen } from "../screens/HistoryScreen";
+import { CustomTrainingScreen } from "../screens/CustomTrainingScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import { TrainingScreen } from "../screens/TrainingScreen";
@@ -29,7 +29,11 @@ export function TabNavigator() {
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarIcon: ({ color }) => <Home color={color} size={21} /> }} />
       <Tab.Screen name="Training" component={TrainingScreen} options={{ tabBarIcon: ({ color }) => <Dumbbell color={color} size={21} /> }} />
-      <Tab.Screen name="History" component={HistoryScreen} options={{ title: "Verlauf", tabBarIcon: ({ color }) => <Clock3 color={color} size={21} /> }} />
+      <Tab.Screen
+        name="CustomTraining"
+        component={CustomTrainingScreen}
+        options={{ title: "Eigenes", tabBarIcon: ({ color }) => <FileText color={color} size={21} /> }}
+      />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: "Profil", tabBarIcon: ({ color }) => <User color={color} size={21} /> }} />
     </Tab.Navigator>
   );

@@ -1,6 +1,7 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { ArrowLeft } from "lucide-react-native";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppCard } from "../components/AppCard";
 import { ScreenContainer } from "../components/ScreenContainer";
@@ -12,6 +13,7 @@ import { HistoryItem } from "../types/session";
 import { formatDate, formatDuration } from "../utils/formatDate";
 
 export function HistoryScreen() {
+  const navigation = useNavigation();
   const { user } = useAuth();
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,8 +32,13 @@ export function HistoryScreen() {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <Text style={styles.title}>Verlauf</Text>
-        <Text style={styles.subtitle}>Deine gespeicherten Sessions und wichtigsten Tipps.</Text>
+        <Pressable onPress={() => navigation.goBack()} style={styles.back}>
+          <ArrowLeft color={colors.primary} />
+        </Pressable>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>Verlauf</Text>
+          <Text style={styles.subtitle}>Deine gespeicherten Sessions und wichtigsten Tipps.</Text>
+        </View>
       </View>
 
       {loading ? <ActivityIndicator color={colors.accent} /> : null}
@@ -50,7 +57,21 @@ export function HistoryScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    gap: 8
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12
+  },
+  back: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  headerText: {
+    flex: 1,
+    gap: 4
   },
   title: {
     ...typography.title,
