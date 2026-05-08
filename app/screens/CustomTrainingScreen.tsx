@@ -1,6 +1,6 @@
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
-import { ArrowLeft, Trash2, Upload } from "lucide-react-native";
+import { Trash2, Upload } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -133,13 +133,8 @@ export function CustomTrainingScreen() {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.back}>
-          <ArrowLeft color={colors.primary} />
-        </Pressable>
-        <View style={styles.headerText}>
-          <Text style={styles.title}>Eigenes Training</Text>
-          <Text style={styles.subtitle}>Lade dein Material hoch — Rheto baut daraus eine Übung.</Text>
-        </View>
+        <Text style={styles.title}>Eigenes Training</Text>
+        <Text style={styles.subtitle}>Lade dein Material hoch — Rheto baut daraus eine Übung.</Text>
       </View>
 
       {savedDocuments.length ? (
@@ -253,19 +248,8 @@ function mapSourceType(type: LoadedFileType): UserDocumentSourceType {
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "flex-start"
+    gap: 6
   },
-  back: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.card,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  headerText: { flex: 1, gap: 4 },
   title: {
     ...typography.title,
     color: colors.primary

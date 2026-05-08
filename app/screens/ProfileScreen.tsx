@@ -56,6 +56,12 @@ export function ProfileScreen() {
       </AppCard>
 
       <AppCard>
+        <Text style={styles.label}>Verlauf</Text>
+        <Text style={styles.body}>Sieh dir abgeschlossene Trainings, Scores und Tipps an.</Text>
+        <AppButton title="Verlauf öffnen" onPress={() => navigation.navigate("History")} variant="secondary" />
+      </AppCard>
+
+      <AppCard>
         <VoicePicker
           value={voiceId}
           onChange={pickVoice}
