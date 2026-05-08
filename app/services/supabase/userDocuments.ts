@@ -1,6 +1,6 @@
 import { supabase } from "./client";
 
-export type UserDocumentSourceType = "paste" | "txt" | "md" | "pdf";
+export type UserDocumentSourceType = "paste" | "txt" | "md" | "pdf" | "image";
 
 export type UserDocument = {
   id: string;

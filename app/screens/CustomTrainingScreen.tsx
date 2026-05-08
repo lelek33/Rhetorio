@@ -206,7 +206,7 @@ export function CustomTrainingScreen() {
               <Pressable onPress={pickFile} disabled={pickingFile} style={styles.uploadButton}>
                 <Upload color={colors.accent} size={18} />
                 <Text style={styles.uploadButtonText}>
-                  {pickingFile ? "Wird gelesen…" : "Datei hochladen (.pdf, .txt, .md)"}
+                  {pickingFile ? "Wird gelesen…" : "Datei hochladen (.pdf, .txt, .md, .jpg, .png)"}
                 </Text>
               </Pressable>
             )}
