@@ -1,6 +1,8 @@
 import { Platform } from "react-native";
 
-export type LoadedFileType = "txt" | "md" | "pdf";
+import { supabase } from "./supabase/client";
+
+export type LoadedFileType = "txt" | "md" | "pdf" | "image";
 
 export type LoadedFile = {
   filename: string;
@@ -8,7 +10,10 @@ export type LoadedFile = {
   type: LoadedFileType;
 };
 
-export const supportedExtensions = ".txt,.md,.pdf";
+export const supportedExtensions = ".txt,.md,.pdf,.jpg,.jpeg,.png,.webp";
+
+const imageMimePrefixes = ["image/"];
+const imageExtensions = ["jpg", "jpeg", "png", "webp"];
 
 export function pickAndReadDocument(): Promise<LoadedFile | null> {
   if (Platform.OS !== "web" || typeof document === "undefined") {
@@ -52,6 +57,10 @@ async function readFile(file: File): Promise<LoadedFile> {
     const text = await readPdf(file);
     return { filename: file.name, text, type: "pdf" };
   }
+  if (imageExtensions.includes(ext) || imageMimePrefixes.some((prefix) => file.type.startsWith(prefix))) {
+    const text = await readImage(file);
+    return { filename: file.name, text, type: "image" };
+  }
   const text = await readText(file);
   const type: LoadedFileType = ext === "md" ? "md" : "txt";
   return { filename: file.name, text, type };
@@ -84,4 +93,44 @@ async function readPdf(file: File): Promise<string> {
     pages.push(lineBuffer.join(" "));
   }
   return pages.join("\n\n").trim();
+}
+
+async function readImage(file: File): Promise<string> {
+  const mimeType = (file.type || `image/${(file.name.split(".").pop() ?? "jpeg").toLowerCase()}`).toLowerCase();
+  const base64 = await fileToBase64(file);
+  const { data, error } = await supabase.functions.invoke<{ text?: string; error?: string }>("extract-image-text", {
+    body: { image_base64: base64, mime_type: mimeType }
+  });
+  if (error) {
+    throw new Error(await extractFunctionErrorMessage(error));
+  }
+  const text = data?.text?.trim();
+  if (!text) throw new Error("Aus dem Bild konnte kein Text extrahiert werden.");
+  return text;
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      const commaIndex = result.indexOf(",");
+      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Bild konnte nicht gelesen werden."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function extractFunctionErrorMessage(error: unknown): Promise<string> {
+  const fallback = error instanceof Error ? error.message : "Bild konnte nicht verarbeitet werden.";
+  const response = (error as { context?: { response?: Response } })?.context?.response;
+  if (!response) return fallback;
+  try {
+    const body = await response.clone().json();
+    if (typeof body?.error === "string") return body.error;
+  } catch {
+    // ignore
+  }
+  return fallback;
 }
