@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const openAiKey = Deno.env.get("OPENAI_API_KEY");
-    const realtimeModel = Deno.env.get("OPENAI_REALTIME_MODEL") ?? "gpt-realtime";
+    const realtimeModel = Deno.env.get("OPENAI_REALTIME_MODEL") ?? "gpt-4o-mini-realtime-preview-2024-12-17";
     const defaultVoice = Deno.env.get("OPENAI_REALTIME_VOICE") ?? "marin";
 
     if (!openAiKey) throw new Error("OPENAI_API_KEY ist nicht gesetzt.");
