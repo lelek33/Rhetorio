@@ -17,7 +17,7 @@ type SampleState = "idle" | "loading" | "playing" | "error";
 
 export function VoicePicker({ value, onChange, title, subtitle }: Props) {
   const [sampleStates, setSampleStates] = useState<Record<string, SampleState>>({});
-  const cacheRef = useRef<Record<string, string>>({});
+  const urlCacheRef = useRef<Record<string, string>>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const activeVoiceRef = useRef<string | null>(null);
 
@@ -25,8 +25,6 @@ export function VoicePicker({ value, onChange, title, subtitle }: Props) {
     return () => {
       audioRef.current?.pause();
       audioRef.current = null;
-      Object.values(cacheRef.current).forEach((url) => URL.revokeObjectURL(url));
-      cacheRef.current = {};
     };
   }, []);
 
@@ -58,25 +56,26 @@ export function VoicePicker({ value, onChange, title, subtitle }: Props) {
       stopActive();
     }
 
-    let objectUrl = cacheRef.current[voiceId];
-    if (!objectUrl) {
+    let url = urlCacheRef.current[voiceId];
+    if (!url) {
       setVoiceState(voiceId, "loading");
       try {
-        const { data, error } = await supabase.functions.invoke<Blob>("voice-sample", {
+        const { data, error } = await supabase.functions.invoke<{ url?: string; error?: string }>("voice-sample", {
           body: { voice: voiceId }
         });
         if (error) throw error;
-        const blob = data instanceof Blob ? data : new Blob([data as ArrayBuffer], { type: "audio/mpeg" });
-        objectUrl = URL.createObjectURL(blob);
-        cacheRef.current[voiceId] = objectUrl;
+        if (!data?.url) throw new Error("Sample-URL fehlt");
+        url = data.url;
+        urlCacheRef.current[voiceId] = url;
       } catch {
         setVoiceState(voiceId, "error");
-        setTimeout(() => setVoiceState(voiceId, "idle"), 1500);
+        setTimeout(() => setVoiceState(voiceId, "idle"), 2000);
         return;
       }
     }
 
-    const audio = new Audio(objectUrl);
+    const audio = new Audio(url);
+    audio.preload = "auto";
     audioRef.current = audio;
     activeVoiceRef.current = voiceId;
     setVoiceState(voiceId, "playing");
@@ -89,14 +88,14 @@ export function VoicePicker({ value, onChange, title, subtitle }: Props) {
     });
     audio.addEventListener("error", () => {
       setVoiceState(voiceId, "error");
-      setTimeout(() => setVoiceState(voiceId, "idle"), 1500);
+      setTimeout(() => setVoiceState(voiceId, "idle"), 2000);
     });
 
     try {
       await audio.play();
     } catch {
       setVoiceState(voiceId, "error");
-      setTimeout(() => setVoiceState(voiceId, "idle"), 1500);
+      setTimeout(() => setVoiceState(voiceId, "idle"), 2000);
     }
   }
 
@@ -150,7 +149,7 @@ function VoiceCard({ option, selected, sampleState, onSelect, onPreview }: Voice
           <Play color={selected ? colors.card : colors.accent} size={16} />
         )}
         <Text style={[styles.previewText, selected && styles.previewTextSelected]}>
-          {sampleState === "playing" ? "Stop" : "Hören"}
+          {sampleState === "playing" ? "Stop" : sampleState === "error" ? "Fehler" : "Hören"}
         </Text>
       </Pressable>
     </View>
