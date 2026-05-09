@@ -76,12 +76,7 @@ function readText(file: File): Promise<string> {
 }
 
 async function readPdf(file: File): Promise<string> {
-  // Lazy-load pdfjs only when a PDF is actually picked, so the bundle
-  // stays small for users who never upload a PDF.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfjs: any = await import(/* webpackChunkName: "pdfjs" */ "pdfjs-dist/legacy/build/pdf.mjs");
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
-
+  const pdfjs = await loadPdfjsFromCdn();
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
   const pages: string[] = [];
@@ -93,6 +88,25 @@ async function readPdf(file: File): Promise<string> {
     pages.push(lineBuffer.join(" "));
   }
   return pages.join("\n\n").trim();
+}
+
+const pdfjsVersion = "4.7.76";
+const pdfjsModuleUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.min.mjs`;
+const pdfjsWorkerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.worker.min.mjs`;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let pdfjsCache: any = null;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadPdfjsFromCdn(): Promise<any> {
+  if (pdfjsCache) return pdfjsCache;
+  // Use Function to hide the dynamic import URL from the bundler so Metro
+  // does not try to statically resolve a remote URL during the web build.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dynamicImport = new Function("url", "return import(url)") as (url: string) => Promise<any>;
+  const pdfjs = await dynamicImport(pdfjsModuleUrl);
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
+  pdfjsCache = pdfjs;
+  return pdfjs;
 }
 
 async function readImage(file: File): Promise<string> {
