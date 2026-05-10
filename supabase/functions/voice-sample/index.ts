@@ -1,3 +1,10 @@
+// voice-sample Edge Function
+//
+// Generates a short Gemini TTS clip for each voice the picker offers and
+// caches it as a WAV file in the public voice-samples Supabase Storage
+// bucket. First request per voice ever takes ~2 s (TTS call + upload);
+// every other request just hands back the cached URL.
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
@@ -9,38 +16,78 @@ const corsHeaders = {
 const sampleText =
   "Hallo, ich bin Rheto. Lass uns gemeinsam an deinem naechsten Gespraech arbeiten.";
 
-// Realtime voices map to TTS voices when the TTS model does not yet
-// expose the same identifier. We use these as a fallback only.
-const ttsVoiceFallback: Record<string, string> = {
-  marin: "shimmer",
-  cedar: "onyx",
-  coral: "coral",
-  ash: "ash",
-  alloy: "alloy",
-  sage: "sage",
-  shimmer: "shimmer",
-  echo: "echo",
-  ballad: "ballad",
-  verse: "verse"
+const voiceMap: Record<string, string> = {
+  marin: "Aoede",
+  coral: "Leda",
+  cedar: "Charon",
+  ash: "Puck"
 };
 
-const allowedVoices = Object.keys(ttsVoiceFallback);
 const bucketId = "voice-samples";
+const ttsModel = Deno.env.get("GEMINI_TTS_MODEL") ?? "gemini-2.5-flash-preview-tts";
+const sampleRate = 24000;
 
-async function callTts(openAiKey: string, voice: string) {
-  return fetch("https://api.openai.com/v1/audio/speech", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${openAiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini-tts",
-      voice,
-      input: sampleText,
-      response_format: "mp3"
-    })
-  });
+async function generateGeminiTts(geminiKey: string, voiceName: string): Promise<Uint8Array> {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${ttsModel}:generateContent?key=${geminiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: sampleText }] }],
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName }
+            }
+          }
+        }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gemini TTS error: ${await response.text()}`);
+  }
+
+  const data = await response.json();
+  const inline = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+  const base64 = inline?.data;
+  if (!base64) throw new Error("Gemini hat kein Audio zurueckgegeben.");
+
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function pcmToWav(pcm: Uint8Array, rate: number): Uint8Array {
+  const dataSize = pcm.length;
+  const wav = new Uint8Array(44 + dataSize);
+  const view = new DataView(wav.buffer);
+
+  // RIFF header
+  view.setUint32(0, 0x52494646, false); // 'RIFF'
+  view.setUint32(4, 36 + dataSize, true);
+  view.setUint32(8, 0x57415645, false); // 'WAVE'
+
+  // fmt chunk
+  view.setUint32(12, 0x666d7420, false); // 'fmt '
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+
+  // data chunk
+  view.setUint32(36, 0x64617461, false); // 'data'
+  view.setUint32(40, dataSize, true);
+
+  wav.set(pcm, 44);
+  return wav;
 }
 
 Deno.serve(async (req) => {
@@ -49,50 +96,37 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const openAiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openAiKey) throw new Error("OPENAI_API_KEY ist nicht gesetzt.");
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!geminiKey) throw new Error("GEMINI_API_KEY ist nicht gesetzt.");
 
-    let voice = "marin";
+    let voiceId = "marin";
     try {
       if (req.headers.get("content-type")?.includes("application/json")) {
         const body = await req.json();
-        if (typeof body?.voice === "string") voice = body.voice;
+        if (typeof body?.voice === "string" && voiceMap[body.voice]) voiceId = body.voice;
       }
     } catch {
       // body optional
     }
-    if (!allowedVoices.includes(voice)) {
-      throw new Error(`Stimme ${voice} wird nicht unterstuetzt.`);
-    }
+    const geminiVoice = voiceMap[voiceId];
 
     const admin = createClient(supabaseUrl, serviceKey);
-    const objectPath = `${voice}.mp3`;
+    const objectPath = `${voiceId}.wav`;
     const { data: publicUrlData } = admin.storage.from(bucketId).getPublicUrl(objectPath);
     const publicUrl = publicUrlData.publicUrl;
 
-    // Check if a cached sample exists for this voice. If yes, just hand
-    // back the URL — the browser plays the static file directly.
     const head = await fetch(publicUrl, { method: "HEAD", cache: "no-store" });
     if (head.ok) {
       return Response.json({ url: publicUrl, cached: true }, { headers: corsHeaders });
     }
 
-    // Generate the sample once via OpenAI TTS, then upload to storage.
-    let response = await callTts(openAiKey, voice);
-    if (!response.ok) {
-      const fallback = ttsVoiceFallback[voice];
-      if (fallback && fallback !== voice) {
-        response = await callTts(openAiKey, fallback);
-      }
-    }
-    if (!response.ok) throw new Error(await response.text());
-
-    const audio = new Uint8Array(await response.arrayBuffer());
+    const pcm = await generateGeminiTts(geminiKey, geminiVoice);
+    const wav = pcmToWav(pcm, sampleRate);
 
     const { error: uploadError } = await admin.storage
       .from(bucketId)
-      .upload(objectPath, audio, {
-        contentType: "audio/mpeg",
+      .upload(objectPath, wav, {
+        contentType: "audio/wav",
         upsert: true,
         cacheControl: "31536000"
       });

@@ -1,12 +1,5 @@
 import { supabase } from "../supabase/client";
-import { RealtimeSessionToken, RealtimeVoiceConnection, StartRealtimeVoiceOptions } from "./realtimeTypes";
-
-export async function createRealtimeSession(): Promise<RealtimeSessionToken> {
-  const { data, error } = await supabase.functions.invoke<RealtimeSessionToken>("create-realtime-session");
-  if (error) throw error;
-  if (!data?.client_secret?.value) throw new Error("Kein Realtime Client Secret erhalten.");
-  return data;
-}
+import { RealtimeVoiceConnection, StartRealtimeVoiceOptions } from "./realtimeTypes";
 
 export async function startRealtimeVoice(_options: StartRealtimeVoiceOptions): Promise<RealtimeVoiceConnection> {
   throw new Error("Live Voice ist auf nativen Builds vorbereitet, aber zuerst nur im Web aktiviert.");
