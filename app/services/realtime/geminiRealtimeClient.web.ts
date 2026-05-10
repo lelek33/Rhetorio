@@ -39,10 +39,17 @@ export async function startGeminiVoice(options: StartRealtimeVoiceOptions): Prom
 
   const ticket = await fetchSessionTicket(options.voiceId);
 
-  // Step 1 — mic capture at 16 kHz mono PCM via AudioWorklet.
-  const inputAudioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({
-    sampleRate: INPUT_SAMPLE_RATE
-  });
+  // Step 1 — mic capture via AudioWorklet. iOS Safari ignores the
+  // sampleRate hint, so the worklet itself downsamples to 16 kHz.
+  const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextCtor) throw new Error("Web Audio API wird nicht unterstützt.");
+  const inputAudioContext = new AudioContextCtor({ sampleRate: INPUT_SAMPLE_RATE });
+  if (inputAudioContext.state === "suspended") {
+    await inputAudioContext.resume().catch(() => undefined);
+  }
+  if (!inputAudioContext.audioWorklet) {
+    throw new Error("AudioWorklet wird in diesem Browser nicht unterstützt.");
+  }
   await inputAudioContext.audioWorklet.addModule(makeWorkletUrl(recorderWorkletSource));
 
   const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -64,10 +71,13 @@ export async function startGeminiVoice(options: StartRealtimeVoiceOptions): Prom
   );
   ws.binaryType = "arraybuffer";
 
-  // Step 3 — output audio playback queue (24 kHz PCM chunks).
-  const outputAudioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({
-    sampleRate: OUTPUT_SAMPLE_RATE
-  });
+  // Step 3 — output audio playback queue (24 kHz PCM chunks). AudioBuffer
+  // carries its own sample rate, so the browser resamples for us even if
+  // the context itself runs at a different rate.
+  const outputAudioContext = new AudioContextCtor({ sampleRate: OUTPUT_SAMPLE_RATE });
+  if (outputAudioContext.state === "suspended") {
+    await outputAudioContext.resume().catch(() => undefined);
+  }
   let nextPlaybackTime = 0;
   const playbackSources: AudioBufferSourceNode[] = [];
   let micEnabled = true;
@@ -350,20 +360,60 @@ function assertWebRtcSupport() {
   }
 }
 
-// AudioWorklet code: takes mono Float32 frames, converts to Int16 PCM and
-// posts ArrayBuffers back to the main thread. Loaded via a Blob URL so the
-// bundler does not need to know about a separate worklet file.
+// AudioWorklet code: takes mono Float32 frames at whatever rate the
+// AudioContext is actually running (iOS Safari ignores our 16 kHz hint
+// and uses 44.1 / 48 kHz), downsamples to 16 kHz, converts to Int16 PCM
+// and posts ArrayBuffers back to the main thread. Loaded via a Blob URL
+// so the bundler does not need to know about a separate worklet file.
 const recorderWorkletSource = `
 class PcmRecorder extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.targetRate = 16000;
+    this.sourceRate = sampleRate;
+    this.ratio = this.sourceRate / this.targetRate;
+    this.tail = [];
+  }
+
   process(inputs) {
     const input = inputs[0];
     if (!input || !input[0]) return true;
     const channel = input[0];
-    const pcm = new Int16Array(channel.length);
-    for (let i = 0; i < channel.length; i++) {
-      const s = Math.max(-1, Math.min(1, channel[i]));
-      pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+
+    // Append new samples to whatever was left over from the previous block.
+    const total = this.tail.length + channel.length;
+    const merged = new Float32Array(total);
+    if (this.tail.length) merged.set(this.tail, 0);
+    merged.set(channel, this.tail.length);
+
+    // Decide how many output samples fit using a sliding source pointer.
+    const ratio = this.ratio;
+    const outSamples = Math.floor((total - 1) / ratio) + 1;
+    if (outSamples <= 0) {
+      this.tail = Array.from(merged);
+      return true;
     }
+
+    const pcm = new Int16Array(outSamples);
+    let lastConsumed = 0;
+    for (let i = 0; i < outSamples; i++) {
+      const srcIndex = i * ratio;
+      const idx = Math.floor(srcIndex);
+      const frac = srcIndex - idx;
+      const next = idx + 1 < total ? merged[idx + 1] : merged[idx];
+      const sample = merged[idx] * (1 - frac) + next * frac;
+      const clipped = Math.max(-1, Math.min(1, sample));
+      pcm[i] = clipped < 0 ? clipped * 0x8000 : clipped * 0x7fff;
+      lastConsumed = idx + 1;
+    }
+
+    // Keep any unprocessed samples so the next block continues smoothly.
+    if (lastConsumed < total) {
+      this.tail = Array.from(merged.subarray(lastConsumed));
+    } else {
+      this.tail = [];
+    }
+
     this.port.postMessage(pcm.buffer, [pcm.buffer]);
     return true;
   }
